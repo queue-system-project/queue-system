@@ -10,7 +10,7 @@ import jwt
 from dotenv import load_dotenv
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy import text
+from sqlalchemy import text, bindparam, Uuid, DateTime, select
 
 from app.database.connection import SessionLocal
 from app.models.users import User
@@ -73,6 +73,7 @@ async def create_session(db, user):
     refresh_token = secrets.token_urlsafe(48)
     now = datetime.utcnow()
 
+    # Jawne typy parametrów zachowują UUID i daty przy zapisie sesji w obu silnikach testowych.
     await db.execute(
         text("""
             INSERT INTO refresh_tokens (
@@ -81,7 +82,8 @@ async def create_session(db, user):
             VALUES (
                 :id, :user_id, :token, :expires_at, :created_at
             )
-        """),
+        """).bindparams(bindparam("id", type_=Uuid), bindparam("user_id", type_=Uuid),
+                         bindparam("expires_at", type_=DateTime), bindparam("created_at", type_=DateTime)),
         {
             "id": session_id,
             "user_id": user.id,
@@ -100,9 +102,15 @@ async def get_current_session(
     if credentials is None:
         raise unauthorized()
 
+    return await authenticate_access_token(credentials.credentials)
+
+
+async def authenticate_access_token(token: str):
+    """Wspólna weryfikacja sesji dla HTTP i WebSocket."""
+
     try:
         payload = jwt.decode(
-            credentials.credentials,
+            token,
             JWT_SECRET,
             algorithms=[JWT_ALGORITHM],
             options={
@@ -122,14 +130,21 @@ async def get_current_session(
     # Окрема сесія БД, щоб не заважати db.begin()
     # у наявних маршрутах черги та візитів.
     async with SessionLocal() as db:
-        active_session = await db.scalar(
-            text("""
-                SELECT id
+        # Jedno zapytanie zastępuje osobne odczyty sesji i użytkownika;
+        # nadal sprawdza wylogowanie, wygaśnięcie i aktywność konta przy każdym użyciu.
+        active_session = text("""
+                EXISTS (SELECT 1
                 FROM refresh_tokens
                 WHERE id = :session_id
                   AND user_id = :user_id
-                  AND expires_at > :now
-            """),
+                  AND expires_at > :now)
+            """).bindparams(
+                bindparam("session_id", type_=Uuid),
+                bindparam("user_id", type_=Uuid),
+                bindparam("now", type_=DateTime),
+            )
+        user = await db.scalar(
+            select(User).where(User.id == user_id, User.is_active.is_(True), active_session),
             {
                 "session_id": session_id,
                 "user_id": user_id,
@@ -137,12 +152,7 @@ async def get_current_session(
             },
         )
 
-        if active_session is None:
-            raise unauthorized()
-
-        user = await db.get(User, user_id)
-
-        if user is None or not user.is_active:
+        if user is None:
             raise unauthorized()
 
     return {

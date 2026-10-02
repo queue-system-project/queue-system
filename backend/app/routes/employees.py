@@ -7,8 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.users import User
 from app.models.catalog import Institution, Service
 from app.models.visit import Visit
+from app.models.queue import QueueEntry
 from app.models.employees import Employee, EmployeeService
 from app.routes.users import get_db
+from app.security import get_current_user
+from app.access import require_admin
+from app.audit import record
 from app.schemas.employees import (
     CreateEmployeeRequest,
     UpdateEmployeeRequest,
@@ -89,6 +93,11 @@ async def validate_services(db, institution_id, service_ids):
 
 
 async def ensure_no_active_visit(db, employee_id):
+    # Zmiana przypisania nie może pozostawić aktywnych rezerwacji bez właściwego pracownika.
+    assigned = await db.scalar(select(QueueEntry.id).where(QueueEntry.employee_id == employee_id,
+        QueueEntry.status.in_(("waiting", "confirmed"))).limit(1))
+    if assigned:
+        raise HTTPException(409, "Resolve assigned bookings before changing the employee")
     visit_id = await db.scalar(
         select(Visit.id)
         .where(
@@ -102,6 +111,23 @@ async def ensure_no_active_visit(db, employee_id):
         raise HTTPException(
             409, "Finish or cancel the active visit first"
         )
+
+
+async def lock_management(db, institution_id, actor):
+    # Wspólna kolejność blokad chroni przypisania podczas zapisu lub rozpoczęcia wizyty.
+    institution = await db.scalar(select(Institution).where(Institution.id == institution_id).with_for_update())
+    if institution is None:
+        raise HTTPException(404, "Institution not found")
+    # Zapis dostępny tylko administratorowi tej instytucji, zamiast anonimowej zmiany personelu.
+    await require_admin(db, actor, institution_id)
+
+
+async def lock_managed_employee(db, employee_id, actor):
+    institution_id = await db.scalar(select(Employee.institution_id).where(Employee.id == employee_id))
+    if institution_id is None:
+        raise HTTPException(404, "Employee not found")
+    await lock_management(db, institution_id, actor)
+    return await find_employee(db, employee_id, lock=True)
 
 
 @router.get(
@@ -175,9 +201,11 @@ async def get_institution_employees(
 )
 async def create_employee(
     data: CreateEmployeeRequest,
+    actor=Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     async with db.begin():
+        await lock_management(db, data.institution_id, actor)
         # Блокування користувача захищає від одночасного
         # створення дублікатів через цей endpoint.
         result = await db.execute(
@@ -241,6 +269,8 @@ async def create_employee(
 
         await db.flush()
         response = await employee_response(db, employee)
+        # Audyt zatwierdzany razem ze zmianą pozwala wskazać jej autora.
+        record(db, actor, "save_employee", "employee", employee.id, response.model_dump())
 
     return response
 
@@ -252,12 +282,11 @@ async def create_employee(
 async def update_employee(
     employee_id: UUID,
     data: UpdateEmployeeRequest,
+    actor=Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     async with db.begin():
-        employee = await find_employee(
-            db, employee_id, lock=True
-        )
+        employee = await lock_managed_employee(db, employee_id, actor)
 
         await ensure_no_active_visit(db, employee.id)
 
@@ -296,6 +325,8 @@ async def update_employee(
 
         await db.flush()
         response = await employee_response(db, employee)
+        # Audyt zatwierdzany razem ze zmianą pozwala wskazać jej autora.
+        record(db, actor, "save_employee", "employee", employee.id, response.model_dump())
 
     return response
 
@@ -306,14 +337,15 @@ async def update_employee(
 )
 async def delete_employee(
     employee_id: UUID,
+    actor=Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     async with db.begin():
-        employee = await find_employee(
-            db, employee_id, lock=True
-        )
+        employee = await lock_managed_employee(db, employee_id, actor)
 
         await ensure_no_active_visit(db, employee.id)
         employee.employee_status = "inactive"
+        # Wyłączenie zachowuje historię pracownika; audyt zapisuje wykonawcę.
+        record(db, actor, "disable", "employee", employee.id)
 
     return Response(status_code=204)

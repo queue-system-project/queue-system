@@ -13,6 +13,8 @@ class Institution(Base):
     address = Column(Text)
     phone = Column(String(20))
     email = Column(String(60))
+    # Brak konfiguracji zachowuje dotychczasową dostępność; pusty włączony grafik zamyka instytucję.
+    calendar_enabled = Column(Boolean, nullable=False, default=False)
 
 
 class Service(Base):

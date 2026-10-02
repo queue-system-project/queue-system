@@ -1,13 +1,12 @@
-import random
-import hashlib
-
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select, or_, text
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError
 from uuid import UUID
 from app.schemas.users import UserResponse
 from app.database.connection import SessionLocal
 from app.models.users import User
+from app.access import require_self
 from app.schemas.users import (
     RegisterRequest,
     RegisterResponse,
@@ -78,18 +77,20 @@ async def get_db():
         yield db
 
 
-# Hash user password before storing it in the database
-def hash_password(password: str) -> str:
-    return hashlib.sha256(password.encode()).hexdigest()
-
-# Generate a 4-digit verification code
-def generate_verification_code() -> str:
-    return str(random.randint(1000, 9999))
+# PBKDF2 zastępuje lokalne SHA-256, zachowując weryfikację i migrację starszych haseł.
+# Kody z terminem ważności i limitem prób zastępują pole users.verification_code.
+from app.passwords import hash_password, verify_password
+from app.auth_codes import issue, check
+from app import mail
 
 
 # Endpoint register
 @router.post("/register", response_model=RegisterResponse)
 async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
+    if not data.email or not data.accept_terms:
+        raise HTTPException(422, "Email and accepted terms are required")
+    # Rejestracja wymaga poczty; brak konfiguracji nie może tworzyć kont bez drogi potwierdzenia.
+    mail.smtp_config()
     conditions = []
 
     if data.email:
@@ -104,7 +105,6 @@ async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
     if existing_user:
         raise HTTPException(status_code=400, detail="User already exists")
 
-    verification_code = generate_verification_code()
     # Create new user object
     new_user = User(
         email=data.email,
@@ -113,36 +113,40 @@ async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
         role="client",
         language="en",
         is_verified=False,
-        verification_code=verification_code,
+        verification_code=None,
         is_active=True
     )
 # Save&refresh
     db.add(new_user)
-    await db.commit()
+    # Konto i skrót kodu zapisujemy razem; kod trafia tylko do emaila, nigdy do odpowiedzi API.
+    try:
+        await db.flush()
+        await issue(db, new_user, "verify")
+        await db.commit()
+    # Równoczesne rejestracje tego samego kontaktu kończą się konfliktem zamiast błędem serwera.
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(409, "User already exists") from None
     await db.refresh(new_user)
 
     return {
         "message": "User registered successfully",
-        "user_id": str(new_user.id),
-        "verification_code": verification_code
+        "user_id": str(new_user.id)
     }
-def verify_password(password: str, password_hash: str) -> bool:
-    return hash_password(password) == password_hash
-
-
 #Endpoint Login
 @router.post("/login", response_model=LoginResponse)
 async def login(
     data: LoginRequest,
     db: AsyncSession = Depends(get_db),
 ):
+    # Blokada użytkownika szereguje logowanie z resetem, aby reset unieważniał starsze sesje.
     result = await db.execute(
         select(User).where(
             or_(
                 User.email == data.login,
                 User.phone == data.login,
             )
-        )
+        ).with_for_update()
     )
 
     user = result.scalar_one_or_none()
@@ -156,6 +160,11 @@ async def login(
     if not user.is_active:
         raise unauthorized()
 
+    # Nowa sesja wymaga potwierdzonego emaila; starszy hash aktualizujemy po poprawnym haśle.
+    if not user.is_verified:
+        raise HTTPException(403, "Verify your email before signing in")
+    if not user.password_hash.startswith("pbkdf2_sha256$"):
+        user.password_hash = hash_password(data.password)
     tokens = await create_session(db, user)
     await db.commit()
 
@@ -163,115 +172,77 @@ async def login(
 
 @router.post("/verify", response_model=VerifyResponse)
 async def verify(data: VerifyRequest, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        select(User).where(
-            or_(User.email == data.login, User.phone == data.login)
-        )
-    )
+    # Wspólny mechanizm zastępuje porównanie jawnego kodu i zużywa go tylko raz.
+    user_id = await check(db, data.login, data.code, "verify", consume=True)
+    if user_id is None:
+        raise HTTPException(400, "Invalid or expired verification code")
+    return {"message": "User verified successfully", "user_id": str(user_id)}
 
-    user = result.scalar_one_or_none()
 
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+@router.post("/resend-verification", response_model=ForgotPasswordResponse)
+async def resend_verification(data: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
+    mail.smtp_config()
+    async with db.begin():
+        user = await db.scalar(select(User).where(or_(User.email == data.login, User.phone == data.login)).with_for_update())
+        if user and user.is_active and not user.is_verified and user.email:
+            await issue(db, user, "verify")
+    return {"message": "If an eligible account exists, a code has been sent"}
 
-    if user.verification_code != data.code:
-        raise HTTPException(status_code=400, detail="Invalid verification code")
 
-    user.is_verified = True
-    user.verification_code = None
-
-    await db.commit()
-    await db.refresh(user)
-
-    return {
-        "message": "User verified successfully",
-        "user_id": str(user.id)
-    }
-
-# Endpoint forgot-password
+# Jednolita odpowiedź nie ujawnia istnienia konta; kod jest dostarczany przez SMTP.
 @router.post("/forgot-password", response_model=ForgotPasswordResponse)
 async def forgot_password(data: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        select(User).where(
-            or_(User.email == data.login, User.phone == data.login)
-        )
-    )
+    mail.smtp_config()
+    async with db.begin():
+        user = await db.scalar(select(User).where(or_(User.email == data.login, User.phone == data.login)).with_for_update())
+        if user and user.is_active and user.email:
+            await issue(db, user, "reset")
+    return {"message": "If an eligible account exists, a code has been sent"}
 
-    user = result.scalar_one_or_none()
 
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    verification_code = generate_verification_code()
-
-    user.verification_code = verification_code
-
-    await db.commit()
-    await db.refresh(user)
-
-    return {
-        "message": "Verification code generated successfully",
-        "verification_code": verification_code
-    }
-
-# Endpoint verify-reset-code
 @router.post("/verify-reset-code", response_model=VerifyResetCodeResponse)
 async def verify_reset_code(data: VerifyResetCodeRequest, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        select(User).where(
-            or_(User.email == data.login, User.phone == data.login)
-        )
-    )
+    # Ten krok sprawdza kod, ale zużywa go dopiero zatwierdzenie nowego hasła.
+    if await check(db, data.login, data.code, "reset") is None:
+        raise HTTPException(400, "Invalid or expired verification code")
+    return {"message": "Verification code is correct"}
 
-    user = result.scalar_one_or_none()
 
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    if user.verification_code != data.code:
-        raise HTTPException(status_code=400, detail="Invalid verification code")
-
-    return {
-        "message": "Verification code is correct"
-    }
-
-# Endpoint reset-password
 @router.post("/reset-password", response_model=ResetPasswordResponse)
 async def reset_password(data: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        select(User).where(
-            or_(User.email == data.login, User.phone == data.login)
-        )
-    )
+    # Zmiana hasła, zużycie kodu i unieważnienie wszystkich sesji są jedną transakcją.
+    if await check(db, data.login, data.verification_code, "reset", consume=True, new_password=data.new_password) is None:
+        raise HTTPException(400, "Invalid or expired verification code")
+    return {"message": "Password reset successfully"}
 
-    user = result.scalar_one_or_none()
 
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    if user.verification_code != data.verification_code:
-        raise HTTPException(status_code=400, detail="Invalid verification code")
-
-    user.password_hash = hash_password(data.new_password)
-    user.verification_code = None
-
-    await db.commit()
-    await db.refresh(user)
-
-    return {
-        "message": "Password reset successfully"
-    }
 @users_router.get("/{user_id}", response_model=UserResponse)
 async def get_user(
     user_id: UUID,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    if current_user.id != user_id and current_user.role != "admin":
-        raise HTTPException(
-            status_code=403,
-            detail="You cannot view this profile",
-        )
+    # Rola administratora nie daje dostępu do wszystkich profili; wymagane jest powiązanie instytucji.
+    # Pracownik widzi obcy profil tylko podczas obsługi przypisanego klienta.
+    if current_user.id != user_id:
+        from app.models.employees import Employee
+        from app.models.queue import QueueEntry
+        own_institutions = select(Employee.institution_id).where(
+            Employee.user_id == current_user.id, Employee.employee_status == "active")
+        allowed = None
+        if current_user.role == "admin":
+            allowed = await db.scalar(select(Employee.id).where(Employee.user_id == user_id,
+                Employee.institution_id.in_(own_institutions)).limit(1))
+            if not allowed:
+                allowed = await db.scalar(select(QueueEntry.id).where(QueueEntry.client_id == user_id,
+                    QueueEntry.institution_id.in_(own_institutions)).limit(1))
+        elif current_user.role == "employee":
+            own_ids = select(Employee.id).where(Employee.user_id == current_user.id,
+                                                Employee.employee_status == "active")
+            allowed = await db.scalar(select(QueueEntry.id).where(QueueEntry.client_id == user_id,
+                QueueEntry.employee_id.in_(own_ids), QueueEntry.status == "in_service").limit(1))
+        if not allowed:
+            raise HTTPException(403, "You cannot view this profile")
 
     user = await db.get(User, user_id)
 
@@ -297,8 +268,11 @@ async def get_user(
 )
 async def complete_profile(
     data: CompleteProfileRequest,
+    current_user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    # Identyfikator przesłany przez klienta nie zastępuje uwierzytelnienia właściciela.
+    require_self(current_user, data.user_id)
     result = await db.execute(
         select(User).where(User.id == data.user_id)
     )
@@ -327,8 +301,11 @@ async def complete_profile(
 )
 async def update_language(
     data: UpdateLanguageRequest,
+    current_user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    # Zmiana dotyczy wyłącznie profilu właściciela uwierzytelnionej sesji.
+    require_self(current_user, data.user_id)
     result = await db.execute(
         select(User).where(User.id == data.user_id)
     )

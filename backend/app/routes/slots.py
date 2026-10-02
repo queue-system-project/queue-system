@@ -1,3 +1,4 @@
+from app.business_time import business_date, day_bounds, local_boundary
 from datetime import datetime
 from uuid import UUID
 
@@ -6,12 +7,15 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.catalog import Service
-from app.models.employees import EmployeeService
+from app.models.employees import Employee, EmployeeService
 from app.models.queue import QueueEntry
 from app.models.slots import ServiceSlot
 from app.routes.users import get_db
 from app.routes.queue import lock_service
 from app.routes.employees import find_employee
+from app.security import get_current_user
+from app.access import require_admin
+from app.audit import record
 from app.schemas.slots import (
     CreateSlotRequest,
     UpdateSlotRequest,
@@ -142,17 +146,34 @@ async def get_service_slots(
         .order_by(ServiceSlot.slot_start, ServiceSlot.id)
     )
 
+    # Dostępność uwzględnia aktywną usługę, pracownika i tylko nadal aktywne rezerwacje.
     if available_only:
+        if not service.is_active:
+            return []
         query = query.where(
+            select(Employee.id).join(EmployeeService, EmployeeService.employee_id == Employee.id).where(
+                Employee.id == ServiceSlot.employee_id, Employee.institution_id == service.institution_id,
+                Employee.employee_status == "active", EmployeeService.service_id == service_id).exists(),
             ServiceSlot.is_available.is_(True),
             ServiceSlot.slot_start > datetime.utcnow(),
             ~select(QueueEntry.id)
-            .where(QueueEntry.slot_id == ServiceSlot.id)
+            .where(QueueEntry.slot_id == ServiceSlot.id,
+                   QueueEntry.status.in_(("waiting", "confirmed", "in_service")))
             .exists(),
         )
 
     result = await db.execute(query)
-    return result.scalars().all()
+    slots = result.scalars().all()
+    if available_only:
+        # Slot poza grafikiem lub w zamkniętym dniu nie jest oferowany klientowi.
+        from app.calendar import load_calendar
+        from app.models.day_closure import DayClosure
+        calendar = await load_calendar(db, service.institution_id)
+        closed_days = set((await db.scalars(select(DayClosure.day).where(
+            DayClosure.institution_id == service.institution_id))).all())
+        slots = [s for s in slots if business_date(s.slot_start) not in closed_days
+                 and calendar.fits(s.slot_start, s.slot_end, s.employee_id)]
+    return slots
 
 
 @router.post(
@@ -162,14 +183,22 @@ async def get_service_slots(
 )
 async def create_slot(
     data: CreateSlotRequest,
+    user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     async with db.begin():
         service, employee = await lock_context(
             db, data.service_id, data.employee_id
         )
+        # Zmiana kalendarza wymaga roli administratora i aktywnej przynależności do instytucji.
+        # Sam identyfikator slotu nie uprawnia do zmiany kalendarza instytucji.
+        await require_admin(db, user, service.institution_id)
 
         await validate_assignment(db, service, employee)
+
+        # Odrzucamy termin poza grafikiem instytucji lub przypisanego pracownika.
+        from app.calendar import require_interval
+        await require_interval(db, service, data.slot_start, data.slot_end, employee.id)
 
         await ensure_no_overlap(
             db,
@@ -189,6 +218,8 @@ async def create_slot(
         await db.flush()
 
         response = SlotResponse.model_validate(slot)
+        # Audyt i slot zapisują się w tej samej transakcji.
+        record(db, user, "save_slot", "slot", slot.id, response.model_dump())
 
     return response
 
@@ -200,12 +231,15 @@ async def create_slot(
 async def update_slot(
     slot_id: UUID,
     data: UpdateSlotRequest,
+    user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     async with db.begin():
         slot, service, employee = await lock_existing_slot(
             db, slot_id
         )
+        # Sam identyfikator slotu nie uprawnia do zmiany kalendarza instytucji.
+        await require_admin(db, user, service.institution_id)
 
         await ensure_not_linked(db, slot.id)
 
@@ -213,6 +247,10 @@ async def update_slot(
             raise HTTPException(409, "Past slots cannot be edited")
 
         await validate_assignment(db, service, employee)
+
+        # Odrzucamy termin poza grafikiem instytucji lub przypisanego pracownika.
+        from app.calendar import require_interval
+        await require_interval(db, service, data.slot_start, data.slot_end, employee.id)
 
         await ensure_no_overlap(
             db,
@@ -228,6 +266,8 @@ async def update_slot(
 
         await db.flush()
         response = SlotResponse.model_validate(slot)
+        # Audyt i slot zapisują się w tej samej transakcji.
+        record(db, user, "save_slot", "slot", slot.id, response.model_dump())
 
     return response
 
@@ -235,12 +275,17 @@ async def update_slot(
 @router.delete("/slots/{slot_id}", status_code=204)
 async def delete_slot(
     slot_id: UUID,
+    user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     async with db.begin():
-        slot, _, _ = await lock_existing_slot(db, slot_id)
+        slot, service, _ = await lock_existing_slot(db, slot_id)
+        # Sam identyfikator slotu nie uprawnia do zmiany kalendarza instytucji.
+        await require_admin(db, user, service.institution_id)
 
         await ensure_not_linked(db, slot.id)
+        # Zachowujemy dane usuwanego slotu w audycie.
+        record(db, user, "delete", "slot", slot.id, old_data=SlotResponse.model_validate(slot).model_dump())
         await db.delete(slot)
 
     return Response(status_code=204)

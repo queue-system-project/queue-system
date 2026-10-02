@@ -2,5 +2,16 @@ venv/
 .env
 __pycache__/
 .idea/
-node_modules/.DS_Store
+node_modules/
+.venv/
+.pytest_cache/
+.pytest-tmp-*/
+*.pyc
+
 .DS_Store
+# Prywatne konfiguracje i klucze Firebase pozostają poza repozytorium.
+.env.*
+!.env.example
+*-firebase-adminsdk-*.json
+service-account*.json
+firebase-service-account*.json

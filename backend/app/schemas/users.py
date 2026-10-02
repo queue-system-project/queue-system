@@ -5,16 +5,17 @@ from pydantic import BaseModel, EmailStr, Field
 from uuid import UUID
 
 class RegisterRequest(BaseModel):
-    email: Optional[EmailStr] = None
+    # Obowiązkowy email zapewnia kanał potwierdzenia konta i odzyskiwania hasła.
+    email: EmailStr
     phone: Optional[str] = Field(default=None, max_length=20)
     password: str = Field(min_length=6, max_length=60)
     accept_terms: bool
 
 
 class RegisterResponse(BaseModel):
+    # Kod usunięto z odpowiedzi: odbiorca otrzymuje go wyłącznie pocztą.
     message: str
     user_id: str
-    verification_code: str
 
 
 class LoginRequest(BaseModel):
@@ -37,13 +38,14 @@ class ForgotPasswordRequest(BaseModel):
 
 
 class ForgotPasswordResponse(BaseModel):
+    # Odpowiedź nie ujawnia kodu ani istnienia konta.
     message: str
-    verification_code: str
 
 
 class VerifyRequest(BaseModel):
     login: str
-    code: str
+    # Cztery cyfry zgodnie z kontraktem; typ tekstowy zachowuje zera na początku.
+    code: str = Field(pattern=r"^[0-9]{4}$")
 
 
 class VerifyResponse(BaseModel):
@@ -53,7 +55,8 @@ class VerifyResponse(BaseModel):
 
 class VerifyResetCodeRequest(BaseModel):
     login: str
-    code: str
+    # Cztery cyfry zgodnie z kontraktem; typ tekstowy zachowuje zera na początku.
+    code: str = Field(pattern=r"^[0-9]{4}$")
 
 
 class VerifyResetCodeResponse(BaseModel):
@@ -62,7 +65,8 @@ class VerifyResetCodeResponse(BaseModel):
 
 class ResetPasswordRequest(BaseModel):
     login: str
-    verification_code: str
+    # Taka sama walidacja kodu jak przy jego wcześniejszym sprawdzeniu.
+    verification_code: str = Field(pattern=r"^[0-9]{4}$")
     new_password: str = Field(min_length=6, max_length=60)
 
 class ResetPasswordResponse(BaseModel):

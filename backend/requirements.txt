@@ -8,3 +8,5 @@ pydantic
 email-validator
 websockets
 PyJWT
+# Dane Europe/Warsaw i zmian czasu także na Windows, bez systemowej bazy stref.
+tzdata
