@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, ForeignKey
+from sqlalchemy import Column, DateTime, ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID, ENUM
 
 from app.database.connection import Base
@@ -32,6 +32,7 @@ class Employee(Base):
         ),
         default="active",
     )
+    room = Column(String(50))
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
