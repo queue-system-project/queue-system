@@ -70,10 +70,10 @@ async def lock_service(db: AsyncSession, service_id: UUID):
 async def join_queue(
     data: JoinQueueRequest,
     current_user=Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession=Depends(get_db),
 ):
-    # Identyfikator w żądaniu musi należeć do zalogowanego klienta.
     require_self(current_user, data.user_id)
+
     async with db.begin():
         user = await db.get(User, data.user_id)
 
@@ -83,48 +83,201 @@ async def join_queue(
         if not user.is_active:
             raise HTTPException(403, "User is inactive")
 
-        # Серіалізуємо зміни черги однієї послуги.
-        service = await lock_service(db, data.service_id)
+        service = await lock_service(
+            db,
+            data.service_id,
+        )
+
+        if not service.is_active:
+            raise HTTPException(
+                400,
+                "Service is inactive",
+            )
+
+        if service.institution_id is None:
+            raise HTTPException(
+                400,
+                "Service has no institution",
+            )
+
         now = datetime.utcnow()
+        today = business_date(now)
+
         slot = None
-        # Opcjonalny slot jest rezerwowany pod blokadą po sprawdzeniu pracownika i dostępności.
+        selected_employee_id = data.employee_id
+
+        # =========================
+        # OLD SLOT FLOW
+        # =========================
+
         if data.slot_id:
             from app.models.slots import ServiceSlot
             from app.routes.slots import validate_assignment
-            slot = await db.scalar(select(ServiceSlot).where(ServiceSlot.id == data.slot_id).with_for_update())
-            if slot is None or slot.service_id != service.id:
-                raise HTTPException(404, "Slot not found for this service")
-            if not slot.is_available or slot.slot_start <= now:
-                raise HTTPException(409, "Slot is not available")
-            employee = await db.get(Employee, slot.employee_id) if slot.employee_id else None
+
+            slot = await db.scalar(
+                select(ServiceSlot)
+                .where(
+                    ServiceSlot.id == data.slot_id
+                )
+                .with_for_update()
+            )
+
+            if (
+                slot is None
+                or slot.service_id != service.id
+            ):
+                raise HTTPException(
+                    404,
+                    "Slot not found for this service",
+                )
+
+            if (
+                not slot.is_available
+                or slot.slot_start <= now
+            ):
+                raise HTTPException(
+                    409,
+                    "Slot is not available",
+                )
+
+            employee = await db.get(
+                Employee,
+                slot.employee_id,
+            )
+
             if employee is None:
-                raise HTTPException(409, "Slot has no employee")
-            await validate_assignment(db, service, employee)
-            occupied = await db.scalar(select(QueueEntry.id).where(
-                QueueEntry.slot_id == slot.id, QueueEntry.status.in_(ACTIVE_STATUSES)).limit(1))
+                raise HTTPException(
+                    409,
+                    "Slot has no employee",
+                )
+
+            await validate_assignment(
+                db,
+                service,
+                employee,
+            )
+
+            occupied = await db.scalar(
+                select(QueueEntry.id)
+                .where(
+                    QueueEntry.slot_id == slot.id,
+                    QueueEntry.status.in_(
+                        ACTIVE_STATUSES
+                    ),
+                )
+                .limit(1)
+            )
+
             if occupied:
-                raise HTTPException(409, "Slot is already booked")
-        # Zamknięcie i godziny pracy sprawdzamy dla dnia wizyty w Europe/Warsaw.
-        queue_date = business_date(slot.slot_start) if slot else business_date(now)
-        from app.models.day_closure import DayClosure
-        if await db.get(DayClosure, (service.institution_id, queue_date)):
-            raise HTTPException(409, "Institution is closed for this day")
-        from app.calendar import require_interval
+                raise HTTPException(
+                    409,
+                    "Slot is already booked",
+                )
+
+            selected_employee_id = slot.employee_id
+
+        # =========================
+        # SELECTED EMPLOYEE
+        # =========================
+
+        elif data.employee_id is not None:
+            from app.routes.slots import validate_assignment
+
+            employee = await db.scalar(
+                select(Employee)
+                .where(
+                    Employee.id == data.employee_id
+                )
+                .with_for_update()
+            )
+
+            if employee is None:
+                raise HTTPException(
+                    404,
+                    "Employee not found",
+                )
+
+            await validate_assignment(
+                db,
+                service,
+                employee,
+            )
+
+        # =========================
+        # QUEUE DATE
+        # =========================
+
         if slot:
-            await require_interval(db, service, slot.slot_start, slot.slot_end, slot.employee_id)
+            queue_date = business_date(
+                slot.slot_start
+            )
         else:
+            queue_date = (
+                data.queue_date
+                or today
+            )
+
+        if queue_date < today:
+            raise HTTPException(
+                400,
+                "Queue date cannot be in the past",
+            )
+
+        # =========================
+        # CLOSED DAY
+        # =========================
+
+        from app.models.day_closure import DayClosure
+
+        if await db.get(
+            DayClosure,
+            (
+                service.institution_id,
+                queue_date,
+            ),
+        ):
+            raise HTTPException(
+                409,
+                "Institution is closed for this day",
+            )
+
+        # Slot nadal ma swój dokładny przedział.
+        if slot:
+            from app.calendar import require_interval
+
+            await require_interval(
+                db,
+                service,
+                slot.slot_start,
+                slot.slot_end,
+                slot.employee_id,
+            )
+
+        # Старий сценарій "Join now" без вибраної дати
+        # nadal wymaga, aby placówka była otwarta teraz.
+        elif data.queue_date is None:
             from app.day_closure import require_open
-            await require_open(db, service, now)
 
-        if not service.is_active:
-            raise HTTPException(400, "Service is inactive")
+            await require_open(
+                db,
+                service,
+                now,
+            )
 
-        if service.institution_id is None:
-            raise HTTPException(400, "Service has no institution")
+        # =========================
+        # CURRENT QUEUE
+        # =========================
 
-        entries = await get_active_entries(db, service.id, queue_date)
+        entries = await get_active_entries(
+            db,
+            service.id,
+            queue_date,
+        )
 
-        if any(entry.client_id == data.user_id for entry in entries):
+        if any(
+            entry.client_id == data.user_id
+            for entry in entries
+        ):
             raise HTTPException(
                 409,
                 "User already has an active entry for this service",
@@ -132,32 +285,123 @@ async def join_queue(
 
         if (
             service.max_queue_length is not None
-            and len(entries) >= service.max_queue_length
+            and len(entries)
+            >= service.max_queue_length
         ):
-            raise HTTPException(409, "Queue is full")
+            raise HTTPException(
+                409,
+                "Queue is full",
+            )
+
+        # =========================
+        # CREATE ENTRY
+        # =========================
 
         entry = QueueEntry(
             institution_id=service.institution_id,
             service_id=service.id,
             client_id=data.user_id,
-            slot_id=slot.id if slot else None,
-            employee_id=slot.employee_id if slot else None,
+
+            slot_id=(
+                slot.id
+                if slot
+                else None
+            ),
+
+            employee_id=selected_employee_id,
+
             queue_date=queue_date,
-            scheduled_at=slot.slot_start if slot else None,
+
+            scheduled_at=(
+                slot.slot_start
+                if slot
+                else None
+            ),
+
+            client_note=(
+                data.client_note.strip()
+                if (
+                    data.client_note
+                    and data.client_note.strip()
+                )
+                else None
+            ),
+
             status="waiting",
         )
+
         db.add(entry)
         await db.flush()
 
-        entries = await get_active_entries(db, service.id, queue_date)
+        # =========================
+        # CALCULATE POSITION + ETA
+        # =========================
 
-        for position, item in enumerate(entries, start=1):
-            item.queue_position = position
+        try:
+            print(
+                "JOIN RECALCULATE:",
+                {
+                    "service_id": service.id,
+                    "queue_date": queue_date,
+                    "employee_id": selected_employee_id,
+                    "now": now,
+                },
+            )
+
+            await recalculate(
+                db,
+                service,
+                now,
+                queue_date=queue_date,
+            )
+
+            print(
+                "JOIN RECALCULATE RESULT:",
+                {
+                    "entry_id": entry.id,
+                    "estimated_start_at":
+                        entry.estimated_start_at,
+                    "estimated_wait_time":
+                        entry.estimated_wait_time,
+                    "queue_position":
+                        entry.queue_position,
+                },
+            )
+
+        except Exception as error:
+            import traceback
+
+            print("RECALCULATE ERROR:")
+            traceback.print_exc()
+
+            raise HTTPException(
+                status_code=500,
+                detail=(
+                    f"Recalculate failed: "
+                    f"{type(error).__name__}: {error}"
+                ),
+            )
+
+        # Якщо для цього дня / працівника
+        # календар не знайшов жодного часу,
+        # запис не створюємо.
+        if entry.estimated_start_at is None:
+            raise HTTPException(
+                409,
+                "No available time for the selected day",
+            )
+
+        await queue_changed(
+            db,
+            entry,
+            update_eta=False,
+        )
 
         await db.flush()
-        # Powiadomienie zapisuje się w tej transakcji; WebSocket budzi się po commit.
-        await queue_changed(db, entry)
-        response = QueueResponse.model_validate(entry)
+
+        response = QueueResponse.model_validate(
+            entry
+        )
 
     return response
 
@@ -190,59 +434,126 @@ async def get_queue_status(
 )
 async def cancel_queue(
     data: CancelQueueRequest,
-    current_user=Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+    current_user=Depends(
+        get_current_user
+    ),
+    db: AsyncSession = Depends(
+        get_db
+    ),
 ):
-    require_self(current_user, data.user_id)
+    require_self(
+        current_user,
+        data.user_id,
+    )
+
     async with db.begin():
-        # Спочатку дізнаємося послугу, не завантажуючи
-        # об'єкт запису до отримання блокування.
+
         service_id = await db.scalar(
-            select(QueueEntry.service_id).where(
-                QueueEntry.id == data.queue_entry_id,
-                QueueEntry.client_id == data.user_id,
+            select(
+                QueueEntry.service_id
+            )
+            .where(
+                QueueEntry.id
+                == data.queue_entry_id,
+
+                QueueEntry.client_id
+                == data.user_id,
             )
         )
 
-        if service_id is None:
-            raise HTTPException(404, "Queue entry not found")
 
-        await lock_service(db, service_id)
+        if service_id is None:
+            raise HTTPException(
+                404,
+                "Queue entry not found",
+            )
+
+
+        service = await lock_service(
+            db,
+            service_id,
+        )
+
 
         result = await db.execute(
             select(QueueEntry)
             .where(
-                QueueEntry.id == data.queue_entry_id,
-                QueueEntry.client_id == data.user_id,
+                QueueEntry.id
+                == data.queue_entry_id,
+
+                QueueEntry.client_id
+                == data.user_id,
             )
             .with_for_update()
         )
-        entry = result.scalar_one_or_none()
+
+
+        entry = (
+            result
+            .scalar_one_or_none()
+        )
+
 
         if entry is None:
-            raise HTTPException(404, "Queue entry not found")
+            raise HTTPException(
+                404,
+                "Queue entry not found",
+            )
 
-        if entry.status != "cancelled":
-            if entry.status not in ("waiting", "confirmed"):
+
+        if (
+            entry.status
+            != "cancelled"
+        ):
+
+            if entry.status not in (
+                "waiting",
+                "confirmed",
+            ):
                 raise HTTPException(
                     409,
-                    "This queue entry cannot be cancelled",
+                    (
+                        "This queue entry "
+                        "cannot be cancelled"
+                    ),
                 )
+
 
             entry.status = "cancelled"
             entry.queue_position = None
+
             await db.flush()
 
-            entries = await get_active_entries(db, service_id)
 
-            for position, item in enumerate(entries, start=1):
-                item.queue_position = position
-            await queue_changed(db, entry)
+
+            await recalculate(
+                db,
+                service,
+                datetime.utcnow(),
+                queue_date=
+                    entry.queue_date,
+            )
+
+
+            await queue_changed(
+                db,
+                entry,
+                update_eta=False,
+            )
+
+
+            await db.flush()
+
 
     return {
-        "message": "Queue entry cancelled",
-        "queue_entry_id": data.queue_entry_id,
-        "status": "cancelled",
+        "message":
+            "Queue entry cancelled",
+
+        "queue_entry_id":
+            data.queue_entry_id,
+
+        "status":
+            "cancelled",
     }
 
 async def lock_entry_service(db, queue_entry_id):
@@ -474,6 +785,7 @@ async def get_institution_queue(
             QueueEntry.estimated_start_at, QueueEntry.eta_updated_at,
             QueueEntry.confirmation_sent_at, QueueEntry.confirmation_expires_at,
             QueueEntry.confirmed_at, QueueEntry.arrival_time,
+
             func.row_number().over(
                 # Ranking osobny dla każdej usługi i daty rezerwacji.
                 partition_by=(QueueEntry.service_id, QueueEntry.queue_date),

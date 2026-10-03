@@ -16,12 +16,16 @@ class InstitutionResponse(BaseModel):
 
 
 class ServiceResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
     id: UUID
-    institution_id: Optional[UUID] = None
+    institution_id: UUID
     name: str
-    description: Optional[str] = None
+    description: str | None = None
     standard_duration: int
-    max_queue_length: Optional[int] = None
-    is_active: Optional[bool] = None
+    max_queue_length: int | None = None
+    is_active: bool
+
+    queue: int = 0
+    spots: int = 0
+    delay: int = 0
+
+    model_config = ConfigDict(from_attributes=True)

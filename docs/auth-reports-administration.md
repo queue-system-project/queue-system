@@ -46,13 +46,19 @@ Wyłączenie usługi lub zmiana standardowego czasu obsługi wymaga rozstrzygni�
 jej aktywnych zapisów. Zmiana przypisań pracownika wymaga najpierw rozstrzygnięcia
 jego rezerwacji i zakończenia aktywnej wizyty.
 
-## Email i odzyskiwanie dostępu
+## Email, SMS i odzyskiwanie dostępu
 
-W aktualnym wariancie rejestracja wymaga emaila i akceptacji regulaminu;
-telefon może być dodatkowym identyfikatorem logowania. Obsługa SMS nie jest
-podłączona. Nowe konto musi potwierdzić email przed pierwszym logowaniem.
+Publiczna rejestracja tworzy wyłącznie konto klienta. Użytkownik może
+zarejestrować się za pomocą adresu email albo numeru telefonu oraz musi
+zaakceptować regulamin. Konto musi zostać zweryfikowane przed pierwszym
+logowaniem.
 
-W prywatnym `backend/.env` należy ustawić:
+Dla adresów email kody weryfikacyjne są wysyłane przez SMTP.
+Dla numerów telefonu wykorzystywana jest usługa Twilio Verify.
+Numery telefonu są przekazywane w formacie międzynarodowym E.164,
+np. `+48537086013`.
+
+W prywatnym `backend/.env` należy ustawić konfigurację SMTP:
 
 ```dotenv
 SMTP_HOST=smtp.example.com
@@ -63,25 +69,48 @@ SMTP_PASSWORD=
 SMTP_FROM=sender@example.com
 ```
 
-Hasło wprowadza się lokalnie zgodnie z wymaganiami dostawcy poczty.
-Alternatywą jest `SMTP_SECURITY=ssl` i port 465. Nieszyfrowane SMTP jest
-odrzucane. Brak konfiguracji lub błąd wysłania zwraca 503.
+Hasło SMTP wprowadza się lokalnie zgodnie z wymaganiami dostawcy poczty.
+Alternatywą jest SMTP_SECURITY=ssl i port 465.
+Brak konfiguracji lub błąd wysłania wiadomości powoduje zwrócenie błędu 503.
+Dla obsługi SMS należy skonfigurować Twilio Verify:
+```dotenv
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=
+TWILIO_VERIFY_SERVICE_SID=
+```
 
-Kody mają cztery cyfry, ważność 10 minut i maksymalnie pięć błędnych prób.
-Ponowne wysłanie jest możliwe po 60 sekundach. W bazie przechowywany jest
-HMAC kodu, a nie kod jawny. Kody potwierdzania konta i resetu hasła są oddzielne.
-Odpowiedzi API nie zawierają kodów; formularz mobilny musi przyjmować cztery cyfry.
-
-Przepływ rejestracji: `/api/auth/register` → email → `/api/auth/verify` → login.
-`POST /api/auth/resend-verification` przyjmuje `{"login":"email"}`.
-Przepływ odzyskiwania: `/api/auth/forgot-password` → email → opcjonalnie
-`/api/auth/verify-reset-code` → `/api/auth/reset-password`.
-Reset zużywa kod i unieważnia wszystkie dotychczasowe sesje użytkownika.
-
-Nowe hasła używają PBKDF2-HMAC-SHA256 z losową solą i 600 000 iteracji,
-zgodnie z [zaleceniem OWASP dla PBKDF2](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html).
-Poprawne logowanie starszym hasłem SHA-256 automatycznie zapisuje nowy format.
-Nie wymaga to ręcznego resetowania kont demonstracyjnych.
+Dane dostępowe Twilio są przechowywane wyłącznie w prywatnym pliku .env
+i nie powinny być zapisywane w repozytorium.
+Kody weryfikacyjne mają cztery cyfry. Dla emaila kod jest generowany
+przez backend, a w bazie przechowywany jest jego HMAC zamiast wartości
+jawnej. Dla numeru telefonu kod jest generowany i weryfikowany przez
+Twilio Verify.
+Backend rozróżnia kody potwierdzania konta (verify) oraz odzyskiwania
+hasła (reset). Ponowne wysłanie kodu jest ograniczone czasowo, aby
+zapobiec wielokrotnemu wysyłaniu wiadomości w krótkim czasie.
+Przepływ rejestracji:
+POST /api/auth/register
+→ wysłanie kodu przez email lub SMS
+→ POST /api/auth/verify
+→ logowanie.
+POST /api/auth/resend-verification umożliwia ponowne wysłanie kodu
+weryfikacyjnego i przyjmuje identyfikator użytkownika w polu login
+(email albo numer telefonu).
+Przepływ odzyskiwania hasła:
+POST /api/auth/forgot-password
+→ wysłanie kodu przez email lub SMS
+→ formularz ustawienia nowego hasła
+→ POST /api/auth/reset-password.
+Endpoint /api/auth/reset-password otrzymuje login, kod weryfikacyjny
+oraz nowe hasło. Kod jest sprawdzany podczas resetowania hasła.
+Po poprawnym resecie kod zostaje zużyty, a dotychczasowe sesje
+użytkownika są unieważniane.
+Logowanie obsługuje zarówno email, jak i numer telefonu. Pole is_active
+określa, czy konto jest aktywne i może się logować; nie oznacza ono
+aktualnej obecności użytkownika online.
+Nowe hasła używają PBKDF2-HMAC-SHA256 z losową solą i 600 000 iteracji.
+Poprawne logowanie kontem posiadającym starszy format hasła powoduje
+automatyczną migrację hasła do aktualnego formatu.
 
 ## Archiwum raportów
 

@@ -9,7 +9,7 @@ from app.models.users import User
 from app.models.auth_challenges import AuthChallenge
 from app.security import JWT_SECRET
 from app.passwords import hash_password
-from app import mail
+from app import mail, sms
 
 
 def digest(user_id, purpose, code):
@@ -17,39 +17,138 @@ def digest(user_id, purpose, code):
 
 
 async def issue(db, user, purpose):
-    if not user.email:
-        raise HTTPException(422, "An email address is required for email verification")
     now = datetime.utcnow()
+
     row = await db.get(AuthChallenge, (user.id, purpose))
+
     if row and row.sent_at > now - timedelta(seconds=60):
-        raise HTTPException(429, "Wait before requesting another code")
-    code = f"{secrets.randbelow(10000):04d}"
+        raise HTTPException(
+            429,
+            "Wait before requesting another code"
+        )
+
     if row is None:
-        row = AuthChallenge(user_id=user.id, purpose=purpose)
+        row = AuthChallenge(
+            user_id=user.id,
+            purpose=purpose,
+        )
         db.add(row)
-    row.code_hash, row.expires_at, row.sent_at, row.attempts = digest(user.id, purpose, code), now + timedelta(minutes=10), now, 0
-    await mail.send_code(user.email, code, purpose, user.language)
+
+    row.sent_at = now
+    row.expires_at = now + timedelta(minutes=10)
+    row.attempts = 0
+
+    if user.email:
+        code = f"{secrets.randbelow(10000):04d}"
+
+        row.code_hash = digest(
+            user.id,
+            purpose,
+            code,
+        )
+
+        await mail.send_code(
+            user.email,
+            code,
+            purpose,
+            user.language,
+        )
+
+    elif user.phone:
+        # Kod generuje i wysyła Twilio Verify.
+        row.code_hash = "twilio_verify"
+
+        await sms.send_code(
+            user.phone,
+            None,
+            purpose,
+            user.language,
+        )
+
+    else:
+        raise HTTPException(
+            422,
+            "Email or phone number is required"
+        )
+
     await db.flush()
 
-
-async def check(db, login, code, purpose, *, consume=False, new_password=None):
-    # Błędna próba jest zatwierdzana przed odpowiedzią HTTP, aby rollback jej nie usuwał.
+async def check(
+    db,
+    login,
+    code,
+    purpose,
+    *,
+    consume=False,
+    new_password=None,
+):
     async with db.begin():
-        user = await db.scalar(select(User).where(or_(User.email == login, User.phone == login)).with_for_update())
+        user = await db.scalar(
+            select(User)
+            .where(
+                or_(
+                    User.email == login,
+                    User.phone == login,
+                )
+            )
+            .with_for_update()
+        )
+
         if not user or not user.is_active:
             return None
-        row = await db.get(AuthChallenge, (user.id, purpose))
-        if not row or row.expires_at <= datetime.utcnow() or row.attempts >= 5:
+
+        row = await db.get(
+            AuthChallenge,
+            (user.id, purpose),
+        )
+
+        if (
+            not row
+            or row.expires_at <= datetime.utcnow()
+            or row.attempts >= 5
+        ):
             return None
-        if not hmac.compare_digest(row.code_hash, digest(user.id, purpose, code)):
+
+        # Phone -> Twilio Verify
+        if user.phone and login == user.phone:
+            valid = await sms.check_code(
+                user.phone,
+                code,
+            )
+
+        # Email -> local hashed code
+        elif user.email and login == user.email:
+            valid = hmac.compare_digest(
+                row.code_hash,
+                digest(user.id, purpose, code),
+            )
+
+        else:
+            return None
+
+        if not valid:
             row.attempts += 1
             return None
+
         if consume:
             await db.delete(row)
+
             user.verification_code = None
             user.is_verified = True
+
             if new_password is not None:
-                user.password_hash = hash_password(new_password)
-                await db.execute(text("DELETE FROM refresh_tokens WHERE user_id=:uid").bindparams(
-                    bindparam("uid", type_=Uuid)), {"uid": user.id})
+                user.password_hash = hash_password(
+                    new_password
+                )
+
+                await db.execute(
+                    text(
+                        "DELETE FROM refresh_tokens "
+                        "WHERE user_id=:uid"
+                    ).bindparams(
+                        bindparam("uid", type_=Uuid)
+                    ),
+                    {"uid": user.id},
+                )
+
         return user.id

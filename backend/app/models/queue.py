@@ -2,8 +2,24 @@ import uuid
 from app.business_time import business_date
 from datetime import datetime
 
-from sqlalchemy import Column, Integer, DateTime, Date, ForeignKey, String, case, func, Index, text
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID, ENUM
+from sqlalchemy import (
+    Column,
+    Integer,
+    DateTime,
+    Date,
+    ForeignKey,
+    String,
+    Text,
+    case,
+    func,
+    Index,
+    text,
+)
+
+from sqlalchemy.dialects.postgresql import (
+    UUID as PG_UUID,
+    ENUM,
+)
 
 from app.database.connection import Base
 
@@ -37,6 +53,7 @@ class QueueEntry(Base):
         PG_UUID(as_uuid=True),
         ForeignKey("users.id"),
     )
+
     # Instancja Column zapewnia mapowanie ORM; samo przypisanie klasy go nie tworzyło.
     employee_id = Column(PG_UUID(as_uuid=True))
     slot_id = Column(PG_UUID(as_uuid=True))
@@ -46,18 +63,46 @@ class QueueEntry(Base):
     confirmation_sent_at = Column(DateTime)
     confirmation_expires_at = Column(DateTime)
     confirmed_at = Column(DateTime)
-    # Trwały zapis ETA i przybycia pozwala zachować uzgodniony czas po przeliczeniu.
+    # Trwały zapis ETA i przybycia pozwala zachować
+    # uzgodniony czas po przeliczeniu.
     arrival_time = Column(DateTime)
+
     estimated_wait_time = Column(Integer)
     delay_time = Column(Integer)
-    estimated_start_at = Column(DateTime)
-    initial_estimated_start_at = Column(DateTime)
-    eta_updated_at = Column(DateTime)
-    priority_at = Column(DateTime)
-    # Przyczyna anulowania i autor nieobecności rozróżniają odmowę klienta od decyzji pracownika.
+
+    estimated_start_at = Column(
+        DateTime,
+        nullable=True,
+    )
+
+    initial_estimated_start_at = Column(
+        DateTime,
+        nullable=True,
+    )
+
+    eta_updated_at = Column(
+        DateTime,
+        nullable=True,
+    )
+
+    priority_at = Column(
+        DateTime,
+        nullable=True,
+    )
+
+    client_note = Column(
+        Text,
+        nullable=True,
+    )
+
     cancellation_reason = Column(String(80))
+
     missed_at = Column(DateTime)
-    missed_by = Column(PG_UUID(as_uuid=True), ForeignKey("users.id"))
+
+    missed_by = Column(
+        PG_UUID(as_uuid=True),
+        ForeignKey("users.id"),
+    )
 
     queue_position = Column(Integer)
 

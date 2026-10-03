@@ -10,11 +10,18 @@ from app.realtime import changed
 
 def as_dict(row):
     return {
-        "id": row.id, "user_id": row.user_id, "title": row.title,
-        "message": row.message, "is_read": row.is_read,
-        "created_at": row.created_at.isoformat() + "Z" if row.created_at else None,
+        "id": row.id,
+        "user_id": row.user_id,
+        "title": row.title,
+        "message": row.message,
+        "is_read": row.is_read,
+        "event_key": row.event_key,
+        "created_at": (
+            row.created_at.isoformat() + "Z"
+            if row.created_at
+            else None
+        ),
     }
-
 
 async def notification_list(db, user_id, limit=50, offset=0, is_read=None):
     query = select(Notification).where(Notification.user_id == user_id)

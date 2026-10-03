@@ -5,11 +5,18 @@ from pydantic import BaseModel, EmailStr, Field
 from uuid import UUID
 
 class RegisterRequest(BaseModel):
-    # Obowiązkowy email zapewnia kanał potwierdzenia konta i odzyskiwania hasła.
-    email: EmailStr
+    email: Optional[EmailStr] = None
     phone: Optional[str] = Field(default=None, max_length=20)
     password: str = Field(min_length=6, max_length=60)
     accept_terms: bool
+
+    @field_validator("phone", mode="before")
+    @classmethod
+    def strip_phone(cls, value):
+        if isinstance(value, str):
+            value = value.strip()
+            return value or None
+        return value
 
 
 class RegisterResponse(BaseModel):

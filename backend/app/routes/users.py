@@ -87,10 +87,19 @@ from app import mail
 # Endpoint register
 @router.post("/register", response_model=RegisterResponse)
 async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
-    if not data.email or not data.accept_terms:
-        raise HTTPException(422, "Email and accepted terms are required")
+    if not data.email and not data.phone:
+        raise HTTPException(
+            422,
+            "Email or phone number is required"
+        )
+
+    if not data.accept_terms:
+        raise HTTPException(
+            422,
+            "Accepted terms are required"
+        )
     # Rejestracja wymaga poczty; brak konfiguracji nie może tworzyć kont bez drogi potwierdzenia.
-    mail.smtp_config()
+
     conditions = []
 
     if data.email:
@@ -151,6 +160,9 @@ async def login(
 
     user = result.scalar_one_or_none()
 
+    print("FORGOT LOGIN:", repr(data.login))
+    print("FORGOT USER FOUND:", user is not None)
+
     if user is None:
         raise unauthorized()
 
@@ -162,10 +174,16 @@ async def login(
 
     # Nowa sesja wymaga potwierdzonego emaila; starszy hash aktualizujemy po poprawnym haśle.
     if not user.is_verified:
-        raise HTTPException(403, "Verify your email before signing in")
+        raise HTTPException(
+            403,
+            "Verify your account before signing in"
+        )
+
     if not user.password_hash.startswith("pbkdf2_sha256$"):
         user.password_hash = hash_password(data.password)
+
     tokens = await create_session(db, user)
+
     await db.commit()
 
     return tokens
@@ -180,33 +198,55 @@ async def verify(data: VerifyRequest, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/resend-verification", response_model=ForgotPasswordResponse)
-async def resend_verification(data: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
-    mail.smtp_config()
+async def resend_verification(
+    data: ForgotPasswordRequest,
+    db: AsyncSession = Depends(get_db),
+):
     async with db.begin():
-        user = await db.scalar(select(User).where(or_(User.email == data.login, User.phone == data.login)).with_for_update())
-        if user and user.is_active and not user.is_verified and user.email:
-            await issue(db, user, "verify")
-    return {"message": "If an eligible account exists, a code has been sent"}
+        user = await db.scalar(
+            select(User)
+            .where(
+                or_(
+                    User.email == data.login,
+                    User.phone == data.login,
+                )
+            )
+            .with_for_update()
+        )
 
+        if user and user.is_active and not user.is_verified:
+            await issue(db, user, "verify")
+
+    return {
+        "message": "If an eligible account exists, a code has been sent"
+    }
 
 # Jednolita odpowiedź nie ujawnia istnienia konta; kod jest dostarczany przez SMTP.
 @router.post("/forgot-password", response_model=ForgotPasswordResponse)
-async def forgot_password(data: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
-    mail.smtp_config()
+async def forgot_password(
+    data: ForgotPasswordRequest,
+    db: AsyncSession = Depends(get_db),
+):
+
     async with db.begin():
-        user = await db.scalar(select(User).where(or_(User.email == data.login, User.phone == data.login)).with_for_update())
-        if user and user.is_active and user.email:
+        user = await db.scalar(
+            select(User)
+            .where(
+                or_(
+                    User.email == data.login,
+                    User.phone == data.login,
+                )
+            )
+            .with_for_update()
+        )
+
+        if user and user.is_active:
+            print("FORGOT CONTACT:", "phone" if user.phone else "email")
             await issue(db, user, "reset")
-    return {"message": "If an eligible account exists, a code has been sent"}
 
-
-@router.post("/verify-reset-code", response_model=VerifyResetCodeResponse)
-async def verify_reset_code(data: VerifyResetCodeRequest, db: AsyncSession = Depends(get_db)):
-    # Ten krok sprawdza kod, ale zużywa go dopiero zatwierdzenie nowego hasła.
-    if await check(db, data.login, data.code, "reset") is None:
-        raise HTTPException(400, "Invalid or expired verification code")
-    return {"message": "Verification code is correct"}
-
+    return {
+        "message": "If an eligible account exists, a code has been sent"
+    }
 
 @router.post("/reset-password", response_model=ResetPasswordResponse)
 async def reset_password(data: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
@@ -399,3 +439,37 @@ async def logout(
     await db.commit()
 
     return {"message": "Logged out successfully"}
+
+@users_router.delete("/me")
+async def delete_account(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    async with db.begin():
+        user = await db.scalar(
+            select(User)
+            .where(User.id == current_user.id)
+            .with_for_update()
+        )
+
+        if user is None:
+            raise HTTPException(
+                status_code=404,
+                detail="User not found",
+            )
+
+        user.is_active = False
+
+        await db.execute(
+            text("""
+                DELETE FROM refresh_tokens
+                WHERE user_id = :user_id
+            """),
+            {
+                "user_id": user.id,
+            },
+        )
+
+    return {
+        "message": "Account deleted successfully"
+    }

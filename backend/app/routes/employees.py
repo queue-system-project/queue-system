@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response
-from sqlalchemy import select, delete
+from sqlalchemy import select, delete, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.users import User
@@ -150,6 +150,346 @@ async def get_employees(
         for employee in result.scalars().all()
     ]
 
+@router.get(
+    "/employees/{employee_id}/details"
+)
+async def get_employee_details(
+    employee_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    employee = await find_employee(
+        db,
+        employee_id,
+    )
+
+    # =========================
+    # USER
+    # =========================
+
+    user = None
+
+    if employee.user_id is not None:
+        user = await db.get(
+            User,
+            employee.user_id,
+        )
+
+
+    # =========================
+    # SERVICES
+    # =========================
+
+    services_result = await db.execute(
+        select(Service)
+        .join(
+            EmployeeService,
+            EmployeeService.service_id
+            == Service.id,
+        )
+        .where(
+            EmployeeService.employee_id
+            == employee.id
+        )
+        .order_by(Service.name)
+    )
+
+    services = (
+        services_result
+        .scalars()
+        .all()
+    )
+
+
+    # =========================
+    # WORKING HOURS
+    # =========================
+
+    hours_result = await db.execute(
+        text(
+            """
+            SELECT
+                id,
+                day_of_week,
+                to_char(
+                    start_time,
+                    'HH24:MI'
+                ) AS start_time,
+                to_char(
+                    end_time,
+                    'HH24:MI'
+                ) AS end_time
+            FROM employee_working_hours
+            WHERE employee_id =
+                CAST(:employee_id AS uuid)
+            ORDER BY
+                day_of_week,
+                start_time
+            """
+        ),
+        {
+            "employee_id":
+                str(employee.id),
+        },
+    )
+
+    working_hours = (
+        hours_result
+        .mappings()
+        .all()
+    )
+
+
+    # =========================
+    # INSTITUTION
+    # =========================
+
+    institution_result = await db.execute(
+        text(
+            """
+            SELECT
+                i.id,
+                i.name,
+                i.description,
+                i.address,
+                i.phone,
+                i.email,
+                i.photo_url,
+                i.latitude,
+                i.longitude,
+
+                c.id AS category_id,
+                c.name AS category_name,
+                c.key AS category_key,
+                c.logo_url AS category_logo_url,
+
+                AVG(r.rating)::float
+                    AS rating,
+
+                COUNT(r.id)
+                    AS reviews_count
+
+            FROM institutions i
+
+            LEFT JOIN institution_categories c
+                ON c.id = i.category_id
+
+            LEFT JOIN institution_reviews r
+                ON r.institution_id = i.id
+
+            WHERE i.id =
+                CAST(:institution_id AS uuid)
+
+            GROUP BY
+                i.id,
+                i.name,
+                i.description,
+                i.address,
+                i.phone,
+                i.email,
+                i.photo_url,
+                i.latitude,
+                i.longitude,
+
+                c.id,
+                c.name,
+                c.key,
+                c.logo_url
+            """
+        ),
+        {
+            "institution_id":
+                str(
+                    employee.institution_id
+                ),
+        },
+    )
+
+    institution_row = (
+        institution_result
+        .mappings()
+        .first()
+    )
+
+
+    # =========================
+    # RESPONSE
+    # =========================
+
+    return {
+        "employee": {
+            "id":
+                employee.id,
+
+            "user_id":
+                employee.user_id,
+
+            "institution_id":
+                employee.institution_id,
+
+            "employee_status":
+                employee.employee_status,
+
+            "room":
+                employee.room,
+
+            "first_name":
+                user.first_name
+                if user
+                else None,
+
+            "last_name":
+                user.last_name
+                if user
+                else None,
+
+            "phone":
+                user.phone
+                if user
+                else None,
+
+            "email":
+                user.email
+                if user
+                else None,
+
+            "profile_image":
+                user.profile_image
+                if user
+                else None,
+        },
+
+
+        "working_hours": [
+            {
+                "id":
+                    row["id"],
+
+                "day_of_week":
+                    row["day_of_week"],
+
+                "start_time":
+                    row["start_time"],
+
+                "end_time":
+                    row["end_time"],
+            }
+            for row in working_hours
+        ],
+
+
+        "services": [
+            {
+                "id":
+                    service.id,
+
+                "name":
+                    service.name,
+
+                "description":
+                    service.description,
+
+                "standard_duration":
+                    service.standard_duration,
+            }
+            for service in services
+        ],
+
+
+        "institution": (
+            {
+                "id":
+                    institution_row["id"],
+
+                "name":
+                    institution_row["name"],
+
+                "description":
+                    institution_row[
+                        "description"
+                    ],
+
+                "address":
+                    institution_row[
+                        "address"
+                    ],
+
+                "phone":
+                    institution_row[
+                        "phone"
+                    ],
+
+                "email":
+                    institution_row[
+                        "email"
+                    ],
+
+                "photo_url":
+                    institution_row[
+                        "photo_url"
+                    ],
+
+                "latitude":
+                    institution_row[
+                        "latitude"
+                    ],
+
+                "longitude":
+                    institution_row[
+                        "longitude"
+                    ],
+
+                "rating": (
+                    round(
+                        float(
+                            institution_row[
+                                "rating"
+                            ]
+                        ),
+                        1,
+                    )
+                    if institution_row[
+                        "rating"
+                    ] is not None
+                    else None
+                ),
+
+                "reviews_count":
+                    institution_row[
+                        "reviews_count"
+                    ],
+
+                "category": (
+                    {
+                        "id":
+                            institution_row[
+                                "category_id"
+                            ],
+
+                        "name":
+                            institution_row[
+                                "category_name"
+                            ],
+
+                        "key":
+                            institution_row[
+                                "category_key"
+                            ],
+
+                        "logo_url":
+                            institution_row[
+                                "category_logo_url"
+                            ],
+                    }
+                    if institution_row[
+                        "category_id"
+                    ]
+                    else None
+                ),
+            }
+            if institution_row
+            else None
+        ),
+    }
 
 @router.get(
     "/employees/{employee_id}",

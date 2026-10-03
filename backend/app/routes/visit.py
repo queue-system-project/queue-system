@@ -2,7 +2,6 @@ from datetime import datetime
 from math import ceil
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.queue import QueueEntry
@@ -12,12 +11,29 @@ from app.routes.queue import lock_service, get_active_entries
 from app.security import get_current_user
 from app.access import require_employee
 from app.notifications import queue_changed
+from app.models.users import User
 from app.models.employees import Employee, EmployeeService
 from app.schemas.visit import (
     StartVisitRequest,
     FinishVisitRequest,
     VisitResponse,
 )
+from app.models.catalog import (
+    Service,
+    Institution,
+    InstitutionCategory,
+)
+from sqlalchemy import select, text, func
+from sqlalchemy.orm import aliased
+from app.models.review import InstitutionReview
+
+from app.business_time import business_date
+from app.models.catalog import (
+    Service,
+    Institution,
+    InstitutionCategory,
+)
+from app.models.review import InstitutionReview
 
 
 router = APIRouter(prefix="/api/visit", tags=["Visit"])
@@ -292,3 +308,1044 @@ async def cancel_visit(
     db: AsyncSession = Depends(get_db),
 ):
     return await finish_visit(db, data, "cancelled", current_user)
+
+@router.get("/appointments")
+async def get_client_appointments(
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    ClientUser = aliased(User)
+    EmployeeUser = aliased(User)
+
+    institution_rating = (
+        select(
+            func.avg(
+                InstitutionReview.rating
+            )
+        )
+        .where(
+            InstitutionReview.institution_id
+            == Institution.id
+        )
+        .correlate(Institution)
+        .scalar_subquery()
+    )
+
+    result = await db.execute(
+        select(
+            # =========================
+            # QUEUE ENTRY
+            # =========================
+
+            QueueEntry.id,
+            QueueEntry.service_id,
+            QueueEntry.employee_id,
+            QueueEntry.client_id,
+            QueueEntry.institution_id,
+
+            QueueEntry.queue_position,
+            QueueEntry.status,
+
+            QueueEntry.queue_date,
+            QueueEntry.scheduled_at,
+
+            QueueEntry.estimated_start_at,
+            QueueEntry.initial_estimated_start_at,
+            QueueEntry.estimated_wait_time,
+            QueueEntry.delay_time,
+            QueueEntry.eta_updated_at,
+
+            QueueEntry.confirmation_sent_at,
+            QueueEntry.confirmation_expires_at,
+
+            QueueEntry.client_note,
+
+            # =========================
+            # SERVICE
+            # =========================
+
+            Service.name.label(
+                "service_name"
+            ),
+
+            Service.description.label(
+                "service_description"
+            ),
+
+            Service.standard_duration.label(
+                "standard_duration"
+            ),
+
+            # =========================
+            # CLIENT
+            # =========================
+
+            ClientUser.id.label(
+                "client_user_id"
+            ),
+
+            ClientUser.first_name.label(
+                "client_first_name"
+            ),
+
+            ClientUser.last_name.label(
+                "client_last_name"
+            ),
+
+            ClientUser.phone.label(
+                "client_phone"
+            ),
+
+            ClientUser.email.label(
+                "client_email"
+            ),
+
+            ClientUser.profile_image.label(
+                "client_profile_image"
+            ),
+
+            # =========================
+            # EMPLOYEE
+            # =========================
+
+            Employee.id.label(
+                "employee_record_id"
+            ),
+
+            Employee.room.label(
+                "employee_room"
+            ),
+
+            EmployeeUser.id.label(
+                "employee_user_id"
+            ),
+
+            EmployeeUser.first_name.label(
+                "employee_first_name"
+            ),
+
+            EmployeeUser.last_name.label(
+                "employee_last_name"
+            ),
+
+            EmployeeUser.phone.label(
+                "employee_phone"
+            ),
+
+            EmployeeUser.email.label(
+                "employee_email"
+            ),
+
+            EmployeeUser.profile_image.label(
+                "employee_profile_image"
+            ),
+
+            # =========================
+            # INSTITUTION
+            # =========================
+
+            Institution.id.label(
+                "institution_record_id"
+            ),
+
+            Institution.name.label(
+                "institution_name"
+            ),
+
+            Institution.description.label(
+                "institution_description"
+            ),
+
+            Institution.address.label(
+                "institution_address"
+            ),
+
+            Institution.phone.label(
+                "institution_phone"
+            ),
+
+            Institution.email.label(
+                "institution_email"
+            ),
+
+            Institution.photo_url.label(
+                "institution_photo_url"
+            ),
+
+            Institution.latitude.label(
+                "institution_latitude"
+            ),
+
+            Institution.longitude.label(
+                "institution_longitude"
+            ),
+
+            # =========================
+            # CATEGORY
+            # =========================
+
+            InstitutionCategory.id.label(
+                "category_id"
+            ),
+
+            InstitutionCategory.name.label(
+                "category_name"
+            ),
+
+            InstitutionCategory.key.label(
+                "category_key"
+            ),
+
+            InstitutionCategory.logo_url.label(
+                "category_logo_url"
+            ),
+
+            # =========================
+            # RATING
+            # =========================
+
+            institution_rating.label(
+                "institution_rating"
+            ),
+        )
+
+        # =========================
+        # SERVICE
+        # =========================
+
+        .join(
+            Service,
+            QueueEntry.service_id
+            == Service.id,
+        )
+
+        # =========================
+        # INSTITUTION
+        # =========================
+
+        .join(
+            Institution,
+            QueueEntry.institution_id
+            == Institution.id,
+        )
+
+        # =========================
+        # CLIENT
+        # =========================
+
+        .join(
+            ClientUser,
+            QueueEntry.client_id
+            == ClientUser.id,
+        )
+
+        # =========================
+        # EMPLOYEE
+        # =========================
+
+        .outerjoin(
+            Employee,
+            QueueEntry.employee_id
+            == Employee.id,
+        )
+
+        .outerjoin(
+            EmployeeUser,
+            Employee.user_id
+            == EmployeeUser.id,
+        )
+
+        # =========================
+        # CATEGORY
+        # =========================
+
+        .outerjoin(
+            InstitutionCategory,
+            Institution.category_id
+            == InstitutionCategory.id,
+        )
+
+        .where(
+            QueueEntry.client_id
+            == current_user.id,
+
+            QueueEntry.status.in_(
+                (
+                    "waiting",
+                    "confirmed",
+                    "in_service",
+                )
+            ),
+
+            QueueEntry.queue_date
+            >= business_date(),
+        )
+
+        .order_by(
+            QueueEntry.queue_date.asc(),
+
+            QueueEntry
+            .estimated_start_at
+            .asc()
+            .nullslast(),
+
+            QueueEntry.created_at.asc(),
+        )
+    )
+
+    rows = result.mappings().all()
+
+    return [
+        {
+            # =========================
+            # APPOINTMENT
+            # =========================
+
+            "id":
+                row["id"],
+
+            "service_id":
+                row["service_id"],
+
+            "employee_id":
+                row["employee_id"],
+
+            "client_id":
+                row["client_id"],
+
+            "institution_id":
+                row["institution_id"],
+
+            "queue_position":
+                row["queue_position"],
+
+            "status":
+                row["status"],
+
+            "queue_date":
+                row["queue_date"],
+
+            "scheduled_at":
+                row["scheduled_at"],
+
+            "estimated_start_at":
+                row["estimated_start_at"],
+
+            "initial_estimated_start_at":
+                row[
+                    "initial_estimated_start_at"
+                ],
+
+            "estimated_wait_time":
+                row["estimated_wait_time"],
+
+
+            "delay_time":
+                row["delay_time"] or 0,
+
+            "eta_updated_at":
+                row["eta_updated_at"],
+
+            "confirmation_sent_at":
+                row["confirmation_sent_at"],
+
+            "confirmation_expires_at":
+                row["confirmation_expires_at"],
+
+            "client_note":
+                row["client_note"],
+
+            # =========================
+            # SERVICE
+            # =========================
+
+            "service": {
+                "id":
+                    row["service_id"],
+
+                "name":
+                    row["service_name"],
+
+                "description":
+                    row[
+                        "service_description"
+                    ],
+
+                "standard_duration":
+                    row[
+                        "standard_duration"
+                    ],
+            },
+
+            # =========================
+            # CLIENT
+            # =========================
+
+            "client": {
+                "id":
+                    row["client_user_id"],
+
+                "first_name":
+                    row["client_first_name"],
+
+                "last_name":
+                    row["client_last_name"],
+
+                "phone":
+                    row["client_phone"],
+
+                "email":
+                    row["client_email"],
+
+                "profile_image":
+                    row[
+                        "client_profile_image"
+                    ],
+            },
+
+            # =========================
+            # EMPLOYEE
+            # =========================
+
+            "employee": (
+                {
+                    "id":
+                        row[
+                            "employee_record_id"
+                        ],
+
+                    "user_id":
+                        row[
+                            "employee_user_id"
+                        ],
+
+                    "first_name":
+                        row[
+                            "employee_first_name"
+                        ],
+
+                    "last_name":
+                        row[
+                            "employee_last_name"
+                        ],
+
+                    "phone":
+                        row[
+                            "employee_phone"
+                        ],
+
+                    "email":
+                        row[
+                            "employee_email"
+                        ],
+
+                    "profile_image":
+                        row[
+                            "employee_profile_image"
+                        ],
+
+                    "room":
+                        row[
+                            "employee_room"
+                        ],
+                }
+
+                if row[
+                    "employee_record_id"
+                ]
+
+                else None
+            ),
+
+            # =========================
+            # INSTITUTION
+            # =========================
+
+            "institution": {
+                "id":
+                    row[
+                        "institution_record_id"
+                    ],
+
+                "name":
+                    row[
+                        "institution_name"
+                    ],
+
+                "description":
+                    row[
+                        "institution_description"
+                    ],
+
+                "address":
+                    row[
+                        "institution_address"
+                    ],
+
+                "phone":
+                    row[
+                        "institution_phone"
+                    ],
+
+                "email":
+                    row[
+                        "institution_email"
+                    ],
+
+                "photo_url":
+                    row[
+                        "institution_photo_url"
+                    ],
+
+                "latitude":
+                    row[
+                        "institution_latitude"
+                    ],
+
+                "longitude":
+                    row[
+                        "institution_longitude"
+                    ],
+
+                "rating": (
+                    round(
+                        float(
+                            row[
+                                "institution_rating"
+                            ]
+                        ),
+                        1,
+                    )
+
+                    if row[
+                        "institution_rating"
+                    ] is not None
+
+                    else None
+                ),
+
+                "category": (
+                    {
+                        "id":
+                            row[
+                                "category_id"
+                            ],
+
+                        "name":
+                            row[
+                                "category_name"
+                            ],
+
+                        "key":
+                            row[
+                                "category_key"
+                            ],
+
+                        "logo_url":
+                            row[
+                                "category_logo_url"
+                            ],
+                    }
+
+                    if row["category_id"]
+
+                    else None
+                ),
+            },
+        }
+
+        for row in rows
+    ]
+
+@router.get("/history")
+async def get_visit_history(
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    ClientUser = aliased(User)
+    EmployeeUser = aliased(User)
+
+    institution_rating = (
+        select(
+            func.avg(
+                InstitutionReview.rating
+            )
+        )
+        .where(
+            InstitutionReview.institution_id
+            == Institution.id
+        )
+        .correlate(Institution)
+        .scalar_subquery()
+    )
+
+    result = await db.execute(
+        select(
+            # =========================
+            # VISIT
+            # =========================
+
+            Visit.id.label(
+                "visit_id"
+            ),
+
+            Visit.queue_entry_id,
+            Visit.service_id,
+            Visit.employee_id,
+
+            Visit.actual_start,
+            Visit.actual_end,
+            Visit.actual_duration,
+            Visit.standard_duration,
+            Visit.status,
+
+            # =========================
+            # QUEUE ENTRY
+            # =========================
+
+            QueueEntry.client_note,
+
+            # =========================
+            # SERVICE
+            # =========================
+
+            Service.name.label(
+                "service_name"
+            ),
+
+            Service.description.label(
+                "service_description"
+            ),
+
+            # =========================
+            # CLIENT
+            # =========================
+
+            ClientUser.id.label(
+                "client_user_id"
+            ),
+
+            ClientUser.first_name.label(
+                "client_first_name"
+            ),
+
+            ClientUser.last_name.label(
+                "client_last_name"
+            ),
+
+            ClientUser.phone.label(
+                "client_phone"
+            ),
+
+            ClientUser.email.label(
+                "client_email"
+            ),
+
+            ClientUser.profile_image.label(
+                "client_profile_image"
+            ),
+
+            # =========================
+            # EMPLOYEE
+            # =========================
+
+            Employee.id.label(
+                "employee_record_id"
+            ),
+
+            Employee.room.label(
+                "employee_room"
+            ),
+
+            EmployeeUser.id.label(
+                "employee_user_id"
+            ),
+
+            EmployeeUser.first_name.label(
+                "employee_first_name"
+            ),
+
+            EmployeeUser.last_name.label(
+                "employee_last_name"
+            ),
+
+            EmployeeUser.phone.label(
+                "employee_phone"
+            ),
+
+            EmployeeUser.email.label(
+                "employee_email"
+            ),
+
+            EmployeeUser.profile_image.label(
+                "employee_profile_image"
+            ),
+
+            # =========================
+            # INSTITUTION
+            # =========================
+
+            Institution.id.label(
+                "institution_id"
+            ),
+
+            Institution.name.label(
+                "institution_name"
+            ),
+
+            Institution.description.label(
+                "institution_description"
+            ),
+
+            Institution.address.label(
+                "institution_address"
+            ),
+
+            Institution.phone.label(
+                "institution_phone"
+            ),
+
+            Institution.email.label(
+                "institution_email"
+            ),
+
+            Institution.photo_url.label(
+                "institution_photo_url"
+            ),
+
+            Institution.latitude.label(
+                "institution_latitude"
+            ),
+
+            Institution.longitude.label(
+                "institution_longitude"
+            ),
+
+            # =========================
+            # CATEGORY
+            # =========================
+
+            InstitutionCategory.id.label(
+                "category_id"
+            ),
+
+            InstitutionCategory.name.label(
+                "category_name"
+            ),
+
+            InstitutionCategory.key.label(
+                "category_key"
+            ),
+
+            InstitutionCategory.logo_url.label(
+                "category_logo_url"
+            ),
+
+            # =========================
+            # RATING
+            # =========================
+
+            institution_rating.label(
+                "institution_rating"
+            ),
+
+            InstitutionReview.rating.label(
+                "review_rating"
+            ),
+        )
+
+        # QUEUE ENTRY
+        .join(
+            QueueEntry,
+            Visit.queue_entry_id
+            == QueueEntry.id,
+        )
+
+        # SERVICE
+        .join(
+            Service,
+            Visit.service_id
+            == Service.id,
+        )
+
+        # INSTITUTION
+        .join(
+            Institution,
+            Service.institution_id
+            == Institution.id,
+        )
+
+        # CLIENT
+        .join(
+            ClientUser,
+            Visit.client_id
+            == ClientUser.id,
+        )
+
+        # EMPLOYEE
+        .outerjoin(
+            Employee,
+            Visit.employee_id
+            == Employee.id,
+        )
+
+        .outerjoin(
+            EmployeeUser,
+            Employee.user_id
+            == EmployeeUser.id,
+        )
+
+        # CATEGORY
+        .outerjoin(
+            InstitutionCategory,
+            Institution.category_id
+            == InstitutionCategory.id,
+        )
+
+        # REVIEW FOR THIS VISIT
+        .outerjoin(
+            InstitutionReview,
+            (
+                InstitutionReview.queue_entry_id
+                == Visit.queue_entry_id
+            )
+            & (
+                InstitutionReview.client_id
+                == current_user.id
+            ),
+        )
+
+        .where(
+            Visit.client_id
+            == current_user.id,
+
+            Visit.status == "done",
+        )
+
+        .order_by(
+            Visit.actual_end.desc()
+        )
+    )
+
+    rows = result.mappings().all()
+
+    return [
+        {
+            "id":
+                row["visit_id"],
+
+            "queue_entry_id":
+                row["queue_entry_id"],
+
+            "service_id":
+                row["service_id"],
+
+            "employee_id":
+                row["employee_id"],
+
+            "actual_start":
+                row["actual_start"],
+
+            "actual_end":
+                row["actual_end"],
+
+            "actual_duration":
+                row["actual_duration"],
+
+            "standard_duration":
+                row["standard_duration"],
+
+            "status":
+                row["status"],
+
+            "client_note":
+                row["client_note"],
+
+            "rated":
+                row["review_rating"]
+                is not None,
+
+            "review_rating":
+                row["review_rating"],
+
+            "service": {
+                "id":
+                    row["service_id"],
+
+                "name":
+                    row["service_name"],
+
+                "description":
+                    row[
+                        "service_description"
+                    ],
+
+                "standard_duration":
+                    row[
+                        "standard_duration"
+                    ],
+            },
+
+            "client": {
+                "id":
+                    row["client_user_id"],
+
+                "first_name":
+                    row["client_first_name"],
+
+                "last_name":
+                    row["client_last_name"],
+
+                "phone":
+                    row["client_phone"],
+
+                "email":
+                    row["client_email"],
+
+                "profile_image":
+                    row[
+                        "client_profile_image"
+                    ],
+            },
+
+            "employee": (
+                {
+                    "id":
+                        row[
+                            "employee_record_id"
+                        ],
+
+                    "user_id":
+                        row[
+                            "employee_user_id"
+                        ],
+
+                    "first_name":
+                        row[
+                            "employee_first_name"
+                        ],
+
+                    "last_name":
+                        row[
+                            "employee_last_name"
+                        ],
+
+                    "phone":
+                        row[
+                            "employee_phone"
+                        ],
+
+                    "email":
+                        row[
+                            "employee_email"
+                        ],
+
+                    "profile_image":
+                        row[
+                            "employee_profile_image"
+                        ],
+
+                    "room":
+                        row[
+                            "employee_room"
+                        ],
+                }
+
+                if row[
+                    "employee_record_id"
+                ]
+
+                else None
+            ),
+
+            "institution": {
+                "id":
+                    row["institution_id"],
+
+                "name":
+                    row[
+                        "institution_name"
+                    ],
+
+                "description":
+                    row[
+                        "institution_description"
+                    ],
+
+                "address":
+                    row[
+                        "institution_address"
+                    ],
+
+                "phone":
+                    row[
+                        "institution_phone"
+                    ],
+
+                "email":
+                    row[
+                        "institution_email"
+                    ],
+
+                "photo_url":
+                    row[
+                        "institution_photo_url"
+                    ],
+
+                "latitude":
+                    row[
+                        "institution_latitude"
+                    ],
+
+                "longitude":
+                    row[
+                        "institution_longitude"
+                    ],
+
+                "rating": (
+                    round(
+                        float(
+                            row[
+                                "institution_rating"
+                            ]
+                        ),
+                        1,
+                    )
+
+                    if row[
+                        "institution_rating"
+                    ] is not None
+
+                    else None
+                ),
+
+                "category": (
+                    {
+                        "id":
+                            row["category_id"],
+
+                        "name":
+                            row[
+                                "category_name"
+                            ],
+
+                        "key":
+                            row[
+                                "category_key"
+                            ],
+
+                        "logo_url":
+                            row[
+                                "category_logo_url"
+                            ],
+                    }
+
+                    if row["category_id"]
+
+                    else None
+                ),
+            },
+        }
+
+        for row in rows
+    ]
