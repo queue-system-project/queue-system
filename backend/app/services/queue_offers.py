@@ -1,4 +1,4 @@
-from app.business_time import business_date, day_bounds, local_boundary
+from app.core.business_time import business_date, day_bounds, local_boundary
 """Oferty szereguje ta sama blokada usługi co zwykłe operacje kolejki."""
 from datetime import datetime, timedelta
 from sqlalchemy import select, exists
@@ -9,7 +9,7 @@ from app.models.employees import Employee, EmployeeService
 from app.models.settings import SystemSettings
 from app.models.users import User
 from app.models.catalog import Service
-from app.realtime import changed
+from app.services.realtime import changed
 
 
 async def settings_for(db, service):
@@ -21,7 +21,7 @@ def response_minutes(settings):
 
 
 async def idle_employee(db, service, now, lock=False):
-    from app.calendar import load_calendar
+    from app.services.calendar import load_calendar
     calendar = await load_calendar(db, service.institution_id)
     query = select(Employee).where(Employee.institution_id == service.institution_id,
         Employee.employee_status == "active", exists(select(EmployeeService.id).where(
@@ -51,7 +51,7 @@ async def signal_window(db, window):
 
 
 async def advance(db, service, now=None):
-    from app.notifications import create_notification
+    from app.services.notifications import create_notification
     now = now or datetime.utcnow()
     window = await db.scalar(select(OfferWindow).where(
         OfferWindow.service_id == service.id, OfferWindow.status == "active"))
@@ -111,7 +111,7 @@ async def open_for_transition(db, entry, now=None):
     if entry.queue_date != business_date(now) or entry.status not in ("done", "cancelled", "skipped", "missed"):
         return
     service = await db.get(Service, entry.service_id)
-    from app.day_closure import is_closed
+    from app.services.day_closure import is_closed
     if await is_closed(db, service.institution_id, now):
         return
     if not service.is_active:

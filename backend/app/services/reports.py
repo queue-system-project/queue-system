@@ -2,8 +2,8 @@
 from collections import Counter
 from datetime import datetime
 from sqlalchemy import select
-from app.business_time import day_bounds, ZONE_NAME
-from app.calendar import load_calendar
+from app.core.business_time import day_bounds, ZONE_NAME
+from app.services.calendar import load_calendar
 from app.models.reports import DailyReport
 from app.models.day_closure import DayClosure
 from app.models.queue import QueueEntry
@@ -12,7 +12,7 @@ from app.models.employees import Employee, EmployeeService
 from app.models.catalog import Service
 from app.models.users import User
 from app.models.notifications import Notification
-from app.notifications import create_notification
+from app.services.notifications import create_notification
 
 
 def average(values):

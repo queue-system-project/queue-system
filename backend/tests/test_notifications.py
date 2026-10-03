@@ -9,8 +9,8 @@ from starlette.websockets import WebSocketDisconnect
 
 from app import security
 from app.models.notifications import Notification
-from app.notifications import create_notification
-from app.realtime import hub
+from app.services.notifications import create_notification
+from app.services.realtime import hub
 from conftest import sessions_table
 
 
@@ -219,7 +219,7 @@ def test_notification_failure_rolls_back_queue(env, monkeypatch):
 
 
 def test_hub_coalesces_and_removes_disconnected_listeners():
-    from app.realtime import Hub
+    from app.services.realtime import Hub
     async def check():
         local = Hub()
         with local.subscribe("alice") as a, local.subscribe("bob") as b:

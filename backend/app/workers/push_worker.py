@@ -1,7 +1,7 @@
 """Osobno uruchamiany proces Firebase. Start API nie wywołuje usług chmurowych.
 
-    python -m app.push_worker --once
-    python -m app.push_worker
+    python -m app.worker.push_worker --once
+    python -m app.worker.push_worker
 
 Ustaw GOOGLE_APPLICATION_CREDENTIALS poza repozytorium. Dostarczanie może się
 powtarzać: odbiorcy powinni usuwać duplikaty według notification_id.

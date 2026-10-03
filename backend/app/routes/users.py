@@ -6,7 +6,7 @@ from uuid import UUID
 from app.schemas.users import UserResponse
 from app.database.connection import SessionLocal
 from app.models.users import User
-from app.access import require_self
+from app.core.access import require_self
 from app.schemas.users import (
     RegisterRequest,
     RegisterResponse,
@@ -31,7 +31,7 @@ import secrets
 from datetime import datetime
 
 from app.schemas.users import RefreshTokenRequest
-from app.security import (
+from app.core.security import (
     create_session,
     build_tokens,
     hash_token,
@@ -79,9 +79,9 @@ async def get_db():
 
 # PBKDF2 zastępuje lokalne SHA-256, zachowując weryfikację i migrację starszych haseł.
 # Kody z terminem ważności i limitem prób zastępują pole users.verification_code.
-from app.passwords import hash_password, verify_password
-from app.auth_codes import issue, check
-from app import mail
+from app.core.passwords import hash_password, verify_password
+from app.core.auth_codes import issue, check
+from app.core import mail
 
 
 # Endpoint register
@@ -220,7 +220,22 @@ async def resend_verification(
     return {
         "message": "If an eligible account exists, a code has been sent"
     }
-
+@router.get("/users/me")
+async def get_me(
+    user=Depends(get_current_user),
+):
+    return {
+        "id": user.id,
+        "email": user.email,
+        "phone": user.phone,
+        "role": user.role,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "profile_image": user.profile_image,
+        "language": user.language,
+        "is_verified": user.is_verified,
+        "is_active": user.is_active,
+    }
 # Jednolita odpowiedź nie ujawnia istnienia konta; kod jest dostarczany przez SMTP.
 @router.post("/forgot-password", response_model=ForgotPasswordResponse)
 async def forgot_password(

@@ -1,5 +1,5 @@
 """Zamknięcie dnia Europe/Warsaw bez kończenia trwających wizyt."""
-from app.business_time import business_date, day_bounds, local_boundary
+from  app.core.business_time import business_date, day_bounds, local_boundary
 from datetime import datetime, time, timedelta
 from fastapi import HTTPException
 from sqlalchemy import select
@@ -8,9 +8,9 @@ from app.models.catalog import Institution, Service
 from app.models.queue import QueueEntry
 from app.models.slots import ServiceSlot
 from app.models.offers import OfferWindow, QueueOffer
-from app.notifications import queue_changed
-from app.queue_offers import signal_window
-from app.reports import refresh_daily_report
+from app.services.notifications import queue_changed
+from app.services.queue_offers import signal_window
+from app.services.reports import refresh_daily_report
 
 
 async def is_closed(db, institution_id, now=None):
@@ -22,7 +22,7 @@ async def require_open(db, service, now=None):
     now = now or datetime.utcnow()
     if await is_closed(db, service.institution_id, now):
         raise HTTPException(409, "Institution is closed for this day")
-    from app.calendar import require_interval
+    from app.services.calendar import require_interval
     await require_interval(db, service, now, now + timedelta(microseconds=1))
 
 

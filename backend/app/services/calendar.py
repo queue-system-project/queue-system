@@ -1,6 +1,6 @@
 """Grafik Europe/Warsaw przeliczany na UTC, bez przenoszenia wizyty na następny dzień."""
 from datetime import datetime, time, timedelta
-from app.business_time import business_date, day_bounds, local_boundary
+from app.core.business_time import business_date, day_bounds, local_boundary
 from fastapi import HTTPException
 from sqlalchemy import select
 from app.models.calendar import InstitutionHours, EmployeeHours, InstitutionHoliday

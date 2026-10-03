@@ -1,4 +1,4 @@
-from app.business_time import business_date, day_bounds, local_boundary
+from app.core.business_time import business_date, day_bounds, local_boundary
 from datetime import datetime
 from uuid import UUID
 
@@ -13,9 +13,9 @@ from app.models.slots import ServiceSlot
 from app.routes.users import get_db
 from app.routes.queue import lock_service
 from app.routes.employees import find_employee
-from app.security import get_current_user
-from app.access import require_admin
-from app.audit import record
+from app.core.security import get_current_user
+from app.core.access import require_admin
+from app.core.audit import record
 from app.schemas.slots import (
     CreateSlotRequest,
     UpdateSlotRequest,
@@ -166,7 +166,7 @@ async def get_service_slots(
     slots = result.scalars().all()
     if available_only:
         # Slot poza grafikiem lub w zamkniętym dniu nie jest oferowany klientowi.
-        from app.calendar import load_calendar
+        from services.calendar import load_calendar
         from app.models.day_closure import DayClosure
         calendar = await load_calendar(db, service.institution_id)
         closed_days = set((await db.scalars(select(DayClosure.day).where(
@@ -197,7 +197,7 @@ async def create_slot(
         await validate_assignment(db, service, employee)
 
         # Odrzucamy termin poza grafikiem instytucji lub przypisanego pracownika.
-        from app.calendar import require_interval
+        from app.services.calendar import require_interval
         await require_interval(db, service, data.slot_start, data.slot_end, employee.id)
 
         await ensure_no_overlap(
@@ -249,7 +249,7 @@ async def update_slot(
         await validate_assignment(db, service, employee)
 
         # Odrzucamy termin poza grafikiem instytucji lub przypisanego pracownika.
-        from app.calendar import require_interval
+        from app.services.calendar import require_interval
         await require_interval(db, service, data.slot_start, data.slot_end, employee.id)
 
         await ensure_no_overlap(

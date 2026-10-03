@@ -1,4 +1,4 @@
-from app.business_time import business_date, day_bounds, local_boundary
+from app.core.business_time import business_date, day_bounds, local_boundary
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -20,10 +20,10 @@ from datetime import datetime
 from app.models.catalog import Institution
 from app.models.employees import Employee, EmployeeService
 from app.schemas.queue import ConfirmQueueRequest, SkipQueueRequest
-from app.security import get_current_user
-from app.access import require_self, require_employee, require_institution
-from app.notifications import queue_changed
-from app.queue_timing import recalculate
+from app.core.security import get_current_user
+from app.core.access import require_self, require_employee, require_institution
+from app.services.notifications import queue_changed
+from app.services.queue_timing import recalculate
 
 router = APIRouter(prefix="/api/queue", tags=["Queue"])
 
@@ -243,7 +243,7 @@ async def join_queue(
 
         # Slot nadal ma swój dokładny przedział.
         if slot:
-            from app.calendar import require_interval
+            from app.services.calendar import require_interval
 
             await require_interval(
                 db,
@@ -256,7 +256,7 @@ async def join_queue(
         # Старий сценарій "Join now" без вибраної дати
         # nadal wymaga, aby placówka była otwarta teraz.
         elif data.queue_date is None:
-            from app.day_closure import require_open
+            from app.services.day_closure import require_open
 
             await require_open(
                 db,
@@ -423,7 +423,7 @@ async def get_queue_status(
 
     # Wspólne zapytanie zastępuje lokalny ranking: liczy całą kolejkę usługi
     # przed wyborem klienta, dzięki czemu HTTP i WebSocket zwracają tę samą pozycję.
-    from app.queue_queries import ranked_queue
+    from app.services.queue_queries import ranked_queue
     result = await db.execute(ranked_queue(user_id, for_user=True))
     return result.mappings().all()
 
@@ -620,7 +620,7 @@ async def confirm_queue(
                 409, "Confirmation deadline has expired"
             )
 
-        from app.day_closure import require_open
+        from app.services.day_closure import require_open
         await require_open(db, service, now)
         await recalculate(db, service, now)
         entry.status = "confirmed"
@@ -802,6 +802,70 @@ async def get_institution_queue(
     result = await db.execute(
         select(ranked).order_by(
             ranked.c.service_id,
+            ranked.c.queue_position,
+        )
+    )
+
+    return result.mappings().all()
+
+@router.get(
+    "/service/{service_id}",
+    response_model=list[QueueResponse],
+)
+async def get_service_queue(
+    service_id: UUID,
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    service = await db.get(Service, service_id)
+
+    if service is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Service not found",
+        )
+
+    await require_institution(
+        db,
+        current_user,
+        service.institution_id,
+    )
+
+    ranked = (
+        select(
+            QueueEntry.id,
+            QueueEntry.institution_id,
+            QueueEntry.service_id,
+            QueueEntry.client_id,
+            QueueEntry.queue_date,
+            QueueEntry.scheduled_at,
+            QueueEntry.slot_id,
+            QueueEntry.employee_id,
+            QueueEntry.status,
+            QueueEntry.estimated_wait_time,
+            QueueEntry.delay_time,
+            QueueEntry.estimated_start_at,
+            QueueEntry.eta_updated_at,
+            QueueEntry.confirmation_sent_at,
+            QueueEntry.confirmation_expires_at,
+            QueueEntry.confirmed_at,
+            QueueEntry.arrival_time,
+
+            func.row_number().over(
+                partition_by=QueueEntry.queue_date,
+                order_by=queue_order(),
+            ).label("queue_position"),
+        )
+        .where(
+            QueueEntry.service_id == service_id,
+            QueueEntry.status.in_(ACTIVE_STATUSES),
+        )
+        .subquery()
+    )
+
+    result = await db.execute(
+        select(ranked).order_by(
+            ranked.c.queue_date,
             ranked.c.queue_position,
         )
     )

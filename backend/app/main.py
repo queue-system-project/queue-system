@@ -30,7 +30,7 @@ async def lifespan(app: FastAPI):
     task = None
 
     if os.getenv("QUEUE_TIMERS_ENABLED") == "1":
-        from app.timer_worker import run
+        from app.workers.timer_worker import run
 
         task = asyncio.create_task(run())
 

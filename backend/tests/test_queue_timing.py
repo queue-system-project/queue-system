@@ -9,8 +9,8 @@ from app.models.visit import Visit
 from app.models.employees import Employee, EmployeeService
 from app.models.settings import SystemSettings
 from app.models.notifications import Notification
-from app.queue_timing import recalculate, process_service
-from app.timer_worker import tick
+from app.services.queue_timing import recalculate, process_service
+from app.workers.timer_worker import tick
 
 
 def join(env, who="alice"):

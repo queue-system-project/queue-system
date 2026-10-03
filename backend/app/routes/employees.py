@@ -1,6 +1,7 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response
+from pydantic import BaseModel
 from sqlalchemy import select, delete, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,9 +11,9 @@ from app.models.visit import Visit
 from app.models.queue import QueueEntry
 from app.models.employees import Employee, EmployeeService
 from app.routes.users import get_db
-from app.security import get_current_user
-from app.access import require_admin
-from app.audit import record
+from app.core.security import get_current_user
+from app.core.access import require_admin, require_institution
+from app.core.audit import record
 from app.schemas.employees import (
     CreateEmployeeRequest,
     UpdateEmployeeRequest,
@@ -22,6 +23,8 @@ from app.schemas.employees import (
 
 router = APIRouter(prefix="/api", tags=["Employees"])
 
+class EmployeeServicesWrite(BaseModel):
+    service_ids: list[UUID]
 
 async def find_employee(db, employee_id, lock=False):
     query = select(Employee).where(Employee.id == employee_id)
@@ -595,6 +598,8 @@ async def create_employee(
         db.add(employee)
         await db.flush()
 
+        
+
         for service_id in service_ids:
             db.add(
                 EmployeeService(
@@ -689,3 +694,130 @@ async def delete_employee(
         record(db, actor, "disable", "employee", employee.id)
 
     return Response(status_code=204)
+@router.get("/employees/{employee_id}/services")
+async def get_employee_services(
+    employee_id: UUID,
+    user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    employee = await db.get(Employee, employee_id)
+
+    if employee is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Employee not found",
+        )
+
+    await require_institution(
+        db,
+        user,
+        employee.institution_id,
+    )
+
+    rows = (
+        await db.scalars(
+            select(Service)
+            .join(
+                EmployeeService,
+                EmployeeService.service_id == Service.id,
+            )
+            .where(
+                EmployeeService.employee_id == employee_id
+            )
+            .order_by(Service.name)
+        )
+    ).all()
+
+    return [
+        {
+            "id": service.id,
+            "institution_id": service.institution_id,
+            "name": service.name,
+            "description": service.description,
+            "standard_duration": service.standard_duration,
+            "max_queue_length": service.max_queue_length,
+            "is_active": service.is_active,
+        }
+        for service in rows
+    ]
+@router.put("/employees/{employee_id}/services")
+async def set_employee_services(
+    employee_id: UUID,
+    data: EmployeeServicesWrite,
+    user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    async with db.begin():
+        employee = await db.get(Employee, employee_id)
+
+        if employee is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Employee not found",
+            )
+
+        await require_admin(
+            db,
+            user,
+            employee.institution_id,
+        )
+
+        service_ids = list(dict.fromkeys(data.service_ids))
+
+        if service_ids:
+            services = (
+                await db.scalars(
+                    select(Service).where(
+                        Service.id.in_(service_ids)
+                    )
+                )
+            ).all()
+
+            found_ids = {service.id for service in services}
+
+            missing = [
+                service_id
+                for service_id in service_ids
+                if service_id not in found_ids
+            ]
+
+            if missing:
+                raise HTTPException(
+                    status_code=404,
+                    detail="One or more services not found",
+                )
+
+            wrong_institution = [
+                service.id
+                for service in services
+                if service.institution_id
+                != employee.institution_id
+            ]
+
+            if wrong_institution:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "Employee can only be assigned "
+                        "to services from the same institution"
+                    ),
+                )
+
+        await db.execute(
+            delete(EmployeeService).where(
+                EmployeeService.employee_id == employee_id
+            )
+        )
+
+        for service_id in service_ids:
+            db.add(
+                EmployeeService(
+                    employee_id=employee_id,
+                    service_id=service_id,
+                )
+            )
+
+    return {
+        "employee_id": employee_id,
+        "service_ids": service_ids,
+    }

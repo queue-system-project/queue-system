@@ -1,4 +1,4 @@
-from app.business_time import business_date, day_bounds
+from app.core.business_time import business_date, day_bounds
 """Szacunki UTC i trwałe terminy; każdy zapis wymaga blokady wiersza usługi."""
 
 from datetime import datetime, timedelta
@@ -11,7 +11,7 @@ from app.models.visit import Visit
 from app.models.employees import Employee, EmployeeService
 from app.models.settings import SystemSettings
 from app.models.users import User
-from app.realtime import changed
+from app.services.realtime import changed
 
 ACTIVE = ("waiting", "confirmed", "in_service")
 
@@ -119,7 +119,7 @@ async def recalculate(
         service.standard_duration or 15,
     )
 
-    from app.calendar import load_calendar
+    from app.services.calendar import load_calendar
 
     calendar = await load_calendar(
         db,
@@ -358,14 +358,14 @@ async def process_service(
     Najpierw wygaszaj, potem przeliczaj i proś
     o potwierdzenie tylko raz dla wpisu.
     """
-    from app.notifications import (
+    from app.services.notifications import (
         create_notification,
         queue_changed,
     )
 
     now = now or datetime.utcnow()
 
-    from app.day_closure import is_closed
+    from app.services.day_closure import is_closed
 
     if await is_closed(
         db,
@@ -452,7 +452,7 @@ async def process_service(
             os.getenv("QUEUE_OFFERS_ENABLED")
             == "1"
         ):
-            from app.queue_offers import advance
+            from app.services.queue_offers import advance
 
             await advance(
                 db,
@@ -527,7 +527,7 @@ async def process_service(
         os.getenv("QUEUE_OFFERS_ENABLED")
         == "1"
     ):
-        from app.queue_offers import advance
+        from app.services.queue_offers import advance
 
         await advance(
             db,

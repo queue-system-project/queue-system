@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.push import PushToken
 from app.routes.users import get_db
-from app.security import get_current_user, get_current_session
+from app.core.security import get_current_user, get_current_session
 
 router = APIRouter(prefix="/api/notifications/devices", tags=["Push devices"])
 

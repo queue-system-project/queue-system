@@ -8,9 +8,9 @@ from app.models.queue import QueueEntry
 from app.models.visit import Visit
 from app.routes.users import get_db
 from app.routes.queue import lock_service, get_active_entries
-from app.security import get_current_user
-from app.access import require_employee
-from app.notifications import queue_changed
+from app.core.security import get_current_user
+from app.core.access import require_employee
+from app.services.notifications import queue_changed
 from app.models.users import User
 from app.models.employees import Employee, EmployeeService
 from app.schemas.visit import (
@@ -27,7 +27,7 @@ from sqlalchemy import select, text, func
 from sqlalchemy.orm import aliased
 from app.models.review import InstitutionReview
 
-from app.business_time import business_date
+from app.core.business_time import business_date
 from app.models.catalog import (
     Service,
     Institution,
@@ -119,9 +119,9 @@ async def start_visit(
         # potwierdzone przybycie wyznacza najwcześniejszy początek wizyty.
         now = datetime.utcnow()
         # Początek obsługi respektuje zamknięcie dnia oraz grafik instytucji i pracownika.
-        from app.day_closure import require_open
+        from app.services.day_closure import require_open
         await require_open(db, service, now)
-        from app.calendar import require_interval
+        from app.services.calendar import require_interval
         from datetime import timedelta
         await require_interval(db, service, now, now + timedelta(microseconds=1), data.employee_id)
         if entry.status == "waiting" and entry.confirmation_expires_at is not None and entry.confirmation_expires_at <= now:
@@ -279,9 +279,9 @@ async def finish_visit(db, data, target_status, current_user):
         response = VisitResponse.model_validate(visit)
         await queue_changed(db, entry)
         # Zamknięty dzień może nadal zawierać trwającą wizytę; odśwież zapisany raport po jej końcu.
-        from app.reports import refresh_daily_report
+        from app.services.reports import refresh_daily_report
         from app.models.day_closure import DayClosure
-        from app.business_time import business_date
+        from app.core.business_time import business_date
         days = (await db.scalars(select(DayClosure.day).where(
             DayClosure.institution_id == entry.institution_id,
             DayClosure.day >= min(entry.queue_date, business_date(visit.actual_start)),

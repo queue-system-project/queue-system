@@ -3,13 +3,13 @@ from datetime import datetime, date, time, timedelta
 from uuid import UUID
 
 from sqlalchemy import select
-from app.calendar import Calendar
-from app.business_time import business_date, local_boundary
+from app.services.calendar import Calendar
+from  app.core.business_time import business_date, local_boundary
 from app.models.day_closure import DayClosure
 from app.models.queue import QueueEntry
 from app.models.catalog import Service
 from app.models.visit import Visit
-from app.timer_worker import tick
+from app.workers.timer_worker import tick
 from test_calendar_booking import create_slot, book
 
 

@@ -1,6 +1,6 @@
 import asyncio
 from sqlalchemy import select, func
-from app.audit import AuditLog
+from app.core.audit import AuditLog
 from test_calendar_booking import book
 
 

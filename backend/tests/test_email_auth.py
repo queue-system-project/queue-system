@@ -4,10 +4,10 @@ import pytest
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 from sqlalchemy import select
-from app import mail
+from app.core import mail
 from app.models.users import User
 from app.models.auth_challenges import AuthChallenge
-from app.passwords import verify_password
+from app.core.passwords import verify_password
 
 
 def capture_mail(monkeypatch):

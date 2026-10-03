@@ -9,11 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.catalog import Institution
 from app.models.employees import Employee
 from app.routes.users import get_db
-from app.security import get_current_user
-from app.access import require_admin, require_employee
-from app.business_time import business_date, day_bounds, ZONE_NAME
+from app.core.security import get_current_user
+from app.core.access import require_admin, require_employee
+from app.core.business_time import business_date, day_bounds, ZONE_NAME
 from app.models.reports import DailyReport
-from app.reports import report_view
+from app.services.reports import report_view
 
 router = APIRouter()
 

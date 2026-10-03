@@ -38,3 +38,4 @@ async def require_admin(db, user, institution_id):
     if user.role != "admin":
         raise HTTPException(403, "Institution administrator required")
     await require_institution(db, user, institution_id)
+

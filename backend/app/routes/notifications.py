@@ -5,15 +5,15 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.access import require_institution, require_self
+from app.core.access import require_institution, require_self
 from app.models.employees import Employee
 from app.models.notifications import Notification
 from app.models.queue import QueueEntry
 from app.models.users import User
-from app.notifications import as_dict, create_notification, notification_list
-from app.realtime import changed
+from app.services.notifications import as_dict, create_notification, notification_list
+from app.services.realtime import changed
 from app.routes.users import get_db
-from app.security import get_current_user
+from app.core.security import get_current_user
 
 router = APIRouter(prefix="/api/notifications", tags=["Notifications"])
 

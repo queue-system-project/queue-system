@@ -7,7 +7,7 @@ from sqlalchemy import select
 from app.models.offers import OfferWindow, QueueOffer
 from app.models.queue import QueueEntry
 from app.models.catalog import Service
-from app.queue_offers import advance
+from  app.services.queue_offers import advance
 from test_queue_timing import join
 
 
@@ -138,7 +138,7 @@ def test_decline_passes_to_next_waiting_client(env, monkeypatch):
 
 def test_disabled_arrival_option_and_empty_queue_window_expiry(env, monkeypatch):
     from app.models.settings import SystemSettings
-    from app.timer_worker import tick
+    from app.workers.timer_worker import tick
     _, offers = prepare(env, monkeypatch)
     async def settings():
         async with env.sessions.begin() as db:

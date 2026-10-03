@@ -6,8 +6,8 @@ import pytest
 from sqlalchemy import select, delete
 
 from app.models.push import PushJob, PushToken
-from app.notifications import create_notification
-from app.push_worker import process_one
+from app.services.notifications import create_notification
+from app.workers.push_worker import process_one
 from conftest import sessions_table
 
 
@@ -103,7 +103,7 @@ def test_firebase_gateway_builds_bounded_preview_without_network(monkeypatch):
     firebase = pytest.importorskip("firebase_admin")
     from firebase_admin import messaging
     from types import SimpleNamespace
-    from app.push_worker import FirebaseGateway
+    from app.workers.push_worker import FirebaseGateway
 
     calls = []
     marker = object()

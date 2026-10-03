@@ -1,9 +1,9 @@
 from uuid import UUID
 from fastapi import APIRouter, Depends
 from app.routes.users import get_db
-from app.security import get_current_user
-from app.access import require_institution
-from app.day_closure import close_day
+from app.core.security import get_current_user
+from app.core.access import require_institution
+from app.services.day_closure import close_day
 
 router = APIRouter(prefix="/api/institutions", tags=["Day closure"])
 

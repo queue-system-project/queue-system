@@ -13,8 +13,8 @@ from app.models.queue import QueueEntry
 from app.models.users import User
 from app.models.offers import OfferWindow, QueueOffer
 from app.models.settings import SystemSettings
-from app.queue_offers import visible_offers
-from app.queue_queries import ranked_queue
+from app.services.queue_offers import visible_offers
+from app.services.queue_queries import ranked_queue
 from conftest import sessions_table
 
 

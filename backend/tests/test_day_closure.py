@@ -11,8 +11,8 @@ from app.models.notifications import Notification
 from app.models.day_closure import DayClosure
 from app.models.offers import OfferWindow, QueueOffer
 from app.models.slots import ServiceSlot
-from app.timer_worker import tick
-from app.business_time import business_date
+from app.workers.timer_worker import tick
+from app.core.business_time import business_date
 
 
 def join(env, who="alice"):
@@ -158,7 +158,7 @@ def test_close_preserves_future_slots_and_expires_offers(env):
 
 
 def test_failed_close_rolls_back_closure_entries_and_notifications(env, monkeypatch):
-    import app.day_closure as module
+    import app.services.day_closure as module
     a = join(env)
     original = module.queue_changed
     async def fail(*args, **kwargs):

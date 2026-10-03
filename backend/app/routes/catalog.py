@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.business_time import business_date, day_bounds
+from app.core.business_time import business_date, day_bounds
 from app.models.catalog import (
     Institution,
     Service,
@@ -16,9 +16,9 @@ from app.models.queue import QueueEntry
 from app.models.employees import Employee, EmployeeService
 from app.models.review import InstitutionReview
 from app.routes.users import get_db
-from app.schemas.catalog import ServiceResponse
-from app.security import get_current_user
-from app.calendar import load_calendar
+from app.schemas.catalog import ( InstitutionResponse, ServiceResponse,)
+from app.core.security import get_current_user
+from app.services.calendar import load_calendar
 
 
 router = APIRouter(
@@ -32,29 +32,29 @@ class CreateInstitutionReviewRequest(BaseModel):
     rating: int = Field(ge=1, le=5)
 
 
-@router.get("/categories")
-async def get_categories(
+@router.get("/categories", include_in_schema=False)
+@router.get("/institution-categories")
+async def get_category(
+    category_id: UUID,
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(
-        select(InstitutionCategory).order_by(
-            InstitutionCategory.name,
-            InstitutionCategory.id,
-        )
+    category = await db.get(
+        InstitutionCategory,
+        category_id,
     )
 
-    categories = result.scalars().all()
+    if category is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Institution category not found",
+        )
 
-    return [
-        {
-            "id": category.id,
-            "name": category.name,
-            "key": category.key,
-            "logo_url": category.logo_url,
-        }
-        for category in categories
-    ]
-
+    return {
+        "id": category.id,
+        "name": category.name,
+        "key": category.key,
+        "logo_url": category.logo_url,
+    }
 
 @router.get("/institutions")
 async def get_institutions(
@@ -133,7 +133,26 @@ async def get_institutions(
             reviews_count,
         ) in rows
     ]
+@router.get(
+    "/institutions/{institution_id}",
+    response_model=InstitutionResponse,
+)
+async def get_institution(
+    institution_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    institution = await db.get(
+        Institution,
+        institution_id,
+    )
 
+    if institution is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Institution not found",
+        )
+
+    return institution
 
 @router.get(
     "/institutions/{institution_id}/working-hours"

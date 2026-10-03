@@ -1,4 +1,4 @@
-from app.business_time import business_date, day_bounds, local_boundary
+from app.core.business_time import business_date, day_bounds, local_boundary
 """Trwałe terminy kolejki. Zalecane QUEUE_TIMERS_ENABLED=1 w jednym procesie API."""
 import asyncio
 import logging
@@ -8,15 +8,15 @@ from app.database.connection import SessionLocal
 from app.models.catalog import Service, Institution
 from app.models.queue import QueueEntry
 from app.models.offers import OfferWindow
-from app.queue_timing import ACTIVE, process_service
+from app.services.queue_timing import ACTIVE, process_service
 
 logger = logging.getLogger(__name__)
 
 
 async def tick(sessions=SessionLocal, now=None):
     now = now or datetime.utcnow()
-    from app.calendar import load_calendar
-    from app.day_closure import close_day
+    from app.services.calendar import load_calendar
+    from app.services.day_closure import close_day
     async with sessions() as db:
         institutions = list((await db.scalars(select(Institution.id).where(
             Institution.calendar_enabled.is_(True)))).all())

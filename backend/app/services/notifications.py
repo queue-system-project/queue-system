@@ -5,7 +5,7 @@ from app.models.notifications import Notification
 from app.models.push import PushJob
 from app.models.queue import QueueEntry
 from app.models.users import User
-from app.realtime import changed
+from  app.services.realtime import changed
 
 
 def as_dict(row):
@@ -85,9 +85,9 @@ async def queue_changed(db, entry, update_eta=True):
         entry.estimated_start_at = None
     if update_eta:
         from app.models.catalog import Service
-        from app.queue_timing import recalculate
+        from app.services.queue_timing import recalculate
         await recalculate(db, await db.get(Service, entry.service_id))
     import os
     if os.getenv("QUEUE_OFFERS_ENABLED") == "1":
-        from app.queue_offers import open_for_transition
+        from app.services.queue_offers import open_for_transition
         await open_for_transition(db, entry)

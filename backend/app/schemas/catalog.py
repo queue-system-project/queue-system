@@ -14,6 +14,21 @@ class InstitutionResponse(BaseModel):
     phone: Optional[str] = None
     email: Optional[str] = None
 
+    category_id: Optional[UUID] = None
+
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    photo_url: Optional[str] = None
+
+    calendar_enabled: bool = False
+
+class InstitutionCategoryResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    name: str
+    logo_url: Optional[str] = None
+    key: str
 
 class ServiceResponse(BaseModel):
     id: UUID

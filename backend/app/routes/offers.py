@@ -1,4 +1,4 @@
-from app.business_time import business_date, day_bounds, local_boundary
+from app.core.business_time import business_date, day_bounds, local_boundary
 from datetime import datetime, timedelta
 from typing import Literal
 from uuid import UUID
@@ -9,10 +9,10 @@ from app.routes.users import get_db
 from app.routes.queue import lock_service, get_locked_entry
 from app.models.offers import OfferWindow, QueueOffer
 from app.models.queue import QueueEntry
-from app.security import get_current_user
+from app.core.security import get_current_user
 from app.schemas.queue import QueueResponse
-from app.notifications import queue_changed
-from app.queue_offers import advance, idle_employee, settings_for, visible_offers, signal_window
+from app.services.notifications import queue_changed
+from app.services.queue_offers import advance, idle_employee, settings_for, visible_offers, signal_window
 
 router = APIRouter(prefix="/api/offers", tags=["Queue offers"])
 
@@ -32,7 +32,7 @@ async def locked_window(db, window_id):
 
 
 async def claim(db, service, window, entry, user, minutes, now):
-    from app.day_closure import require_open
+    from app.services.day_closure import require_open
     await require_open(db, service, now)
     if window.status != "active" or window.expires_at <= now or business_date(window.created_at) != business_date(now) or not service.is_active:
         raise HTTPException(409, "Offer is no longer available")
@@ -52,7 +52,7 @@ async def claim(db, service, window, entry, user, minutes, now):
     employee = await idle_employee(db, service, now, lock=True)
     if employee is None:
         raise HTTPException(409, "No employee is available")
-    from app.calendar import require_interval
+    from app.services.calendar import require_interval
     await require_interval(db, service, arrival,
                            arrival + timedelta(minutes=max(1, service.standard_duration or 15)), employee.id)
     if entry is not None and entry.employee_id not in (None, employee.id):

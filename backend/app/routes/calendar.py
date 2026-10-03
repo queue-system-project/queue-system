@@ -1,19 +1,19 @@
 """Grafik zastępuje się w całości, pod tą samą blokadą co rezerwacje."""
 from datetime import date, datetime, time
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import select, delete
 from app.routes.users import get_db
-from app.security import get_current_user
-from app.access import require_institution, require_admin
+from app.core.security import get_current_user
+from app.core.access import require_institution, require_admin
 from app.models.catalog import Institution, Service
 from app.models.employees import Employee
 from app.models.calendar import InstitutionHours, EmployeeHours, InstitutionHoliday
 from app.models.slots import ServiceSlot
 from app.models.queue import QueueEntry
-from app.calendar import load_calendar
-from app.audit import record
+from app.services.calendar import load_calendar
+from app.core.audit import record
 
 router = APIRouter(prefix="/api", tags=["Calendar"])
 
@@ -129,3 +129,196 @@ async def employee_schedule(employee_id: UUID, user=Depends(get_current_user), d
     return {"timezone": "Europe/Warsaw", "inherits_institution": not bool(rows),
             "intervals": [{"day_of_week": r.day_of_week, "start_time": r.start_time,
                            "end_time": r.end_time} for r in rows]}
+
+@router.get("/institutions/{institution_id}/holidays")
+async def get_holidays(
+    institution_id: UUID,
+    user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    await require_institution(db, user, institution_id)
+
+    rows = (
+        await db.scalars(
+            select(InstitutionHoliday)
+            .where(
+                InstitutionHoliday.institution_id == institution_id
+            )
+            .order_by(InstitutionHoliday.holiday_date)
+        )
+    ).all()
+
+    return [
+        {
+            "id": row.id,
+            "institution_id": row.institution_id,
+            "holiday_date": row.holiday_date,
+            "description": row.description or "",
+        }
+        for row in rows
+    ]
+
+
+@router.post(
+    "/institutions/{institution_id}/holidays",
+    status_code=201,
+)
+async def create_holiday(
+    institution_id: UUID,
+    data: Holiday,
+    user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    async with db.begin():
+        await lock_institution(db, institution_id, user)
+
+        existing = await db.scalar(
+            select(InstitutionHoliday.id).where(
+                InstitutionHoliday.institution_id == institution_id,
+                InstitutionHoliday.holiday_date == data.holiday_date,
+            )
+        )
+
+        if existing is not None:
+            raise HTTPException(
+                status_code=409,
+                detail="Holiday already exists for this date",
+            )
+
+        row = InstitutionHoliday(
+            institution_id=institution_id,
+            holiday_date=data.holiday_date,
+            description=data.description,
+        )
+
+        db.add(row)
+        await db.flush()
+
+        await validate_bookings(db, institution_id)
+
+        record(
+            db,
+            user,
+            "create_holiday",
+            "institution_holiday",
+            row.id,
+            data.model_dump(),
+        )
+
+        return {
+            "id": row.id,
+            "institution_id": row.institution_id,
+            "holiday_date": row.holiday_date,
+            "description": row.description or "",
+        }
+
+
+@router.put(
+    "/institutions/{institution_id}/holidays/{holiday_id}",
+)
+async def update_holiday(
+    institution_id: UUID,
+    holiday_id: UUID,
+    data: Holiday,
+    user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    async with db.begin():
+        await lock_institution(db, institution_id, user)
+
+        row = await db.scalar(
+            select(InstitutionHoliday)
+            .where(
+                InstitutionHoliday.id == holiday_id,
+                InstitutionHoliday.institution_id == institution_id,
+            )
+            .with_for_update()
+        )
+
+        if row is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Holiday not found",
+            )
+
+        duplicate = await db.scalar(
+            select(InstitutionHoliday.id).where(
+                InstitutionHoliday.institution_id == institution_id,
+                InstitutionHoliday.holiday_date == data.holiday_date,
+                InstitutionHoliday.id != holiday_id,
+            )
+        )
+
+        if duplicate is not None:
+            raise HTTPException(
+                status_code=409,
+                detail="Holiday already exists for this date",
+            )
+
+        old = {
+            "holiday_date": row.holiday_date,
+            "description": row.description or "",
+        }
+
+        row.holiday_date = data.holiday_date
+        row.description = data.description
+
+        await validate_bookings(db, institution_id)
+
+        record(
+            db,
+            user,
+            "update_holiday",
+            "institution_holiday",
+            row.id,
+            data.model_dump(),
+            old,
+        )
+
+        return {
+            "id": row.id,
+            "institution_id": row.institution_id,
+            "holiday_date": row.holiday_date,
+            "description": row.description or "",
+        }
+
+
+@router.delete(
+    "/institutions/{institution_id}/holidays/{holiday_id}",
+    status_code=204,
+)
+async def delete_holiday(
+    institution_id: UUID,
+    holiday_id: UUID,
+    user=Depends(get_current_user),
+    db=Depends(get_db),
+):
+    async with db.begin():
+        await lock_institution(db, institution_id, user)
+
+        row = await db.scalar(
+            select(InstitutionHoliday)
+            .where(
+                InstitutionHoliday.id == holiday_id,
+                InstitutionHoliday.institution_id == institution_id,
+            )
+            .with_for_update()
+        )
+
+        if row is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Holiday not found",
+            )
+
+        await db.delete(row)
+
+        record(
+            db,
+            user,
+            "delete_holiday",
+            "institution_holiday",
+            row.id,
+        )
+
+    return Response(status_code=204)

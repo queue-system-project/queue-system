@@ -7,14 +7,14 @@ from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy import func, select
 
-from app.access import require_institution, require_self
+from app.core.access import require_institution, require_self
 from app.database.connection import SessionLocal
 from app.models.catalog import Service
 from app.models.queue import QueueEntry, queue_order
-from app.notifications import notification_list
-from app.queue_offers import visible_offers
-from app.realtime import hub
-from app.security import authenticate_access_token
+from app.services.notifications import notification_list
+from app.services.queue_offers import visible_offers
+from app.services.realtime import hub
+from app.core.security import authenticate_access_token
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -23,7 +23,7 @@ SEND_TIMEOUT = 5
 
 
 async def queue_snapshot(db, target_id, for_user=False):
-    from app.queue_queries import ranked_queue
+    from app.services.queue_queries import ranked_queue
     rows = await db.execute(ranked_queue(target_id, for_user=for_user))
     from datetime import datetime
     return [{key: value.isoformat() + "Z" if isinstance(value, datetime) else value

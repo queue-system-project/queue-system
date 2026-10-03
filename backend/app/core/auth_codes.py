@@ -7,9 +7,9 @@ from fastapi import HTTPException
 from sqlalchemy import select, or_, text, bindparam, Uuid
 from app.models.users import User
 from app.models.auth_challenges import AuthChallenge
-from app.security import JWT_SECRET
-from app.passwords import hash_password
-from app import mail, sms
+from app.core.security import JWT_SECRET
+from app.core.passwords import hash_password
+from app.core import mail, sms
 
 
 def digest(user_id, purpose, code):

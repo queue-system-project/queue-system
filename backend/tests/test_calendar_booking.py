@@ -9,8 +9,8 @@ from app.models.queue import QueueEntry
 from app.models.slots import ServiceSlot
 from app.models.catalog import Service
 from app.models.offers import OfferWindow, QueueOffer
-from app.timer_worker import tick
-from app.business_time import business_date, local_boundary
+from app.workers.timer_worker import tick
+from app.core.business_time import business_date, local_boundary
 
 
 def create_slot(env, days=1, hour=10):
