@@ -148,13 +148,22 @@ async def login(
     user = result.scalar_one_or_none()
 
     if user is None:
-        raise unauthorized()
+        raise HTTPException(
+            status_code=401,
+            detail="User not found"
+        )
 
     if not verify_password(data.password, user.password_hash):
-        raise unauthorized()
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid password"
+        )
 
     if not user.is_active:
-        raise unauthorized()
+        raise HTTPException(
+            status_code=401,
+            detail="User is inactive"
+        )
 
     tokens = await create_session(db, user)
     await db.commit()
