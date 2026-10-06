@@ -1,20 +1,12 @@
 import React, { useState } from "react";
-import {
-    View,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    KeyboardAvoidingView,
-    Platform,
-} from "react-native";
-
+import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { useLanguage } from "../../context/LanguageContext";
+import { useMessage } from "../../context/MessageContext";
 import { completeProfileStyles as styles } from "../../styles/auth/completeProfileStyles";
 import { completeProfile } from "../../api/user/userApi";
 import { getUserId } from "../../api/auth/tokenStorage";
-import { useMessage } from "../../context/MessageContext";
 
 export default function CompleteProfileScreen({ navigation }) {
     const [firstName, setFirstName] = useState("");
@@ -26,7 +18,7 @@ export default function CompleteProfileScreen({ navigation }) {
 
     const handleContinue = async () => {
         if (!firstName.trim() || !lastName.trim()) {
-            showMessage("Please enter your first and last name", "error");
+            showMessage(t.completeProfileRequired, "error");
             return;
         }
 
@@ -45,8 +37,10 @@ export default function CompleteProfileScreen({ navigation }) {
                 index: 0,
                 routes: [{ name: "Home" }],
             });
+
         } catch (error) {
-            showMessage(error.message, "error");
+            console.error("COMPLETE PROFILE ERROR:", error);
+            showMessage(t.completeProfileError, "error");
         } finally {
             setLoading(false);
         }
@@ -57,7 +51,6 @@ export default function CompleteProfileScreen({ navigation }) {
             style={styles.container}
             behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
-            {/* HEADER */}
             <View style={styles.header}>
                 <Text style={styles.logo}>
                     <Text style={styles.logoGreen}>Q</Text>
@@ -69,46 +62,23 @@ export default function CompleteProfileScreen({ navigation }) {
                     onPress={() => navigation.navigate("Language")}
                     activeOpacity={0.8}
                 >
-                    <Text style={styles.languageText}>
-                        {t.languageName}
-                    </Text>
-
-                    <Ionicons
-                        name="chevron-down"
-                        size={20}
-                        color="#111111"
-                    />
+                    <Text style={styles.languageText}>{t.languageName}</Text>
+                    <Ionicons name="chevron-down" size={20} color="#111111"/>
                 </TouchableOpacity>
             </View>
 
-            {/* TITLE */}
-            <Text style={styles.title}>
-                Complete Profile
-            </Text>
+            <Text style={styles.title}>{t.completeProfileTitle}</Text>
 
-            {/* AVATAR */}
             <View style={styles.avatarSection}>
                 <View style={styles.avatar}>
-                    <Ionicons
-                        name="person-outline"
-                        size={62}
-                        color="#111111"
-                    />
+                    <Ionicons name="person-outline" size={62} color="#111111"/>
 
-                    <TouchableOpacity
-                        style={styles.changePhotoButton}
-                        activeOpacity={0.8}
-                    >
-                        <Ionicons
-                            name="person-add"
-                            size={15}
-                            color="#111111"
-                        />
+                    <TouchableOpacity style={styles.changePhotoButton} activeOpacity={0.8}>
+                        <Ionicons name="person-add" size={15} color="#111111"/>
                     </TouchableOpacity>
                 </View>
             </View>
 
-            {/* FORM */}
             <View style={styles.form}>
                 <View style={styles.field}>
                     <Text style={styles.label}>
@@ -136,16 +106,13 @@ export default function CompleteProfileScreen({ navigation }) {
                     />
                 </View>
 
-                {/* CONTINUE */}
                 <TouchableOpacity
                     style={styles.continueButton}
                     onPress={handleContinue}
                     activeOpacity={0.8}
                     disabled={loading}
                 >
-                    <Text style={styles.continueButtonText}>
-                        Continue
-                    </Text>
+                    <Text style={styles.continueButtonText}>{t.continue}</Text>
                 </TouchableOpacity>
             </View>
         </KeyboardAvoidingView>

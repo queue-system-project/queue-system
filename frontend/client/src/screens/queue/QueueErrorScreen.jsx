@@ -1,10 +1,5 @@
 import React from "react";
-import {
-    ScrollView,
-    Text,
-    TouchableOpacity,
-    View,
-} from "react-native";
+import {ScrollView, Text, TouchableOpacity, View,} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import BottomNavigation from "../../components/BottomNavigation";
@@ -32,15 +27,9 @@ export default function QueueErrorScreen({ navigation }) {
                     <TouchableOpacity
                         style={styles.notificationButton}
                         activeOpacity={0.8}
-                        onPress={() =>
-                            navigation.navigate("Notifications")
-                        }
+                        onPress={() => navigation.navigate("Notifications")}
                     >
-                        <Ionicons
-                            name="notifications"
-                            size={27}
-                            color="#111111"
-                        />
+                        <Ionicons name="notifications" size={27} color="#111111"/>
                     </TouchableOpacity>
                 </View>
 
@@ -65,11 +54,7 @@ export default function QueueErrorScreen({ navigation }) {
                                 ]}
                             >
                                 <View style={styles.errorCircle}>
-                                    <Ionicons
-                                        name="close"
-                                        size={30}
-                                        color="#FFFFFF"
-                                    />
+                                    <Ionicons name="close" size={30} color="#FFFFFF"/>
                                 </View>
                             </View>
                         </View>

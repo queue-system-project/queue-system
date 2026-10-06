@@ -1,10 +1,5 @@
-import React from "react";
-import {
-    ScrollView,
-    Text,
-    TouchableOpacity,
-    View,
-} from "react-native";
+import React, { useEffect, useState } from "react";
+import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { queueStatusStyles as styles } from "../../styles/queue/queueStatusStyle";
@@ -15,16 +10,16 @@ export default function QueueStatusScreen({ navigation, route }) {
     const { t } = useLanguage();
     const { appointmentId } = route.params;
 
-    const [appointment, setAppointment] = React.useState(null);
-    const [loading, setLoading] = React.useState(true);
+    const [appointment, setAppointment] = useState(null);
+    const [loading, setLoading] = useState(true);
 
-    React.useEffect(() => {
+    useEffect(() => {
         const loadAppointment = async () => {
             try {
                 const data = await getAppointments();
 
                 const selectedAppointment = data.find(
-                    item => item.id === appointmentId
+                    item => String(item.id) === String(appointmentId)
                 );
 
                 console.log(
@@ -33,8 +28,11 @@ export default function QueueStatusScreen({ navigation, route }) {
                 );
 
                 setAppointment(selectedAppointment ?? null);
+
             } catch (error) {
                 console.error("Failed to load appointment:", error);
+                setAppointment(null);
+
             } finally {
                 setLoading(false);
             }
@@ -45,14 +43,13 @@ export default function QueueStatusScreen({ navigation, route }) {
 
     const position = appointment?.queue_position ?? "-";
 
-    const formatTime = (value) => {
-        if (!value) {
-            return "-";
-        }
+    const formatTime = value => {
+        if (!value) return "-";
 
         const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return "-";
 
-        return date.toLocaleTimeString("en-GB", {
+        return date.toLocaleTimeString(t.locale || "en-GB", {
             hour: "2-digit",
             minute: "2-digit",
             hour12: false,
@@ -65,28 +62,38 @@ export default function QueueStatusScreen({ navigation, route }) {
 
     const waitingTime =
         appointment?.estimated_wait_time != null
-            ? `${appointment.estimated_wait_time} min`
+            ? `${appointment.estimated_wait_time} ${t.min}`
             : "-";
 
     const employee = appointment?.employee
-        ? `${appointment.employee.first_name ?? ""} ${
-            appointment.employee.last_name ?? ""
-        }`.trim()
+        ? `${appointment.employee.first_name ?? ""} ${appointment.employee.last_name ?? ""}`.trim()
         : "-";
 
     const room = appointment?.employee?.room ?? "-";
 
-    const service = appointment?.service_name ?? "-";
+    const service =
+        appointment?.service?.name ??
+        appointment?.service_name ??
+        "-";
 
     const getStatus = () => {
-        if (position <= 2) {
+        const numericPosition = Number(position);
+
+        if (!Number.isFinite(numericPosition)) {
+            return {
+                color: "#5657C4",
+                background: "#F0F0FA",
+            };
+        }
+
+        if (numericPosition <= 2) {
             return {
                 color: "#2ECC40",
                 background: "#DDF8DF",
             };
         }
 
-        if (position <= 5) {
+        if (numericPosition <= 5) {
             return {
                 color: "#FFBD16",
                 background: "#FFF1AE",
@@ -107,18 +114,14 @@ export default function QueueStatusScreen({ navigation, route }) {
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.content}
             >
-                {/* PURPLE HEADER */}
+                {/* HEADER */}
                 <View style={styles.header}>
                     <TouchableOpacity
                         style={styles.backButton}
                         onPress={() => navigation.goBack()}
                         activeOpacity={0.8}
                     >
-                        <Ionicons
-                            name="chevron-back"
-                            size={28}
-                            color="#FFFFFF"
-                        />
+                        <Ionicons name="chevron-back" size={28} color="#FFFFFF"/>
                     </TouchableOpacity>
 
                     <Text style={styles.headerTitle}>
@@ -134,13 +137,11 @@ export default function QueueStatusScreen({ navigation, route }) {
                 <View
                     style={[
                         styles.positionCircle,
-                        {
-                            borderColor: status.color,
-                        },
+                        { borderColor: status.color },
                     ]}
                 >
                     <Text style={styles.positionNumber}>
-                        {position}
+                        {loading ? "-" : position}
                     </Text>
 
                     <Text style={styles.positionText}>

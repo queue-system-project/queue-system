@@ -5,6 +5,7 @@ export const searchTranslations = {
 
         all: "All",
         results: "results",
+        loading: "Loading...",
 
         noResults: "No results found",
         noResultsDescription:
@@ -22,6 +23,7 @@ export const searchTranslations = {
 
         all: "Wszystkie",
         results: "wyników",
+        loading: "Ładowanie...",
 
         noResults: "Brak wyników",
         noResultsDescription:

@@ -1,22 +1,29 @@
 import React from "react";
-
-import {
-    Image,
-    Text,
-    TouchableOpacity,
-    View,
-} from "react-native";
-
+import { Image, Text, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-import {
-    popUpWindowStyles as styles,
-} from "../../styles/popUpWindows/popUpWindowStyle";
+import { popUpWindowStyles as styles } from "../../styles/popUpWindows/popUpWindowStyle";
+import { useLanguage } from "../../context/LanguageContext";
 
-import {
-    useLanguage,
-} from "../../context/LanguageContext";
+const CATEGORY_TRANSLATIONS = {
+    Healthcare: "categoryHealthcare",
+    "Banking & Finance": "categoryBankingFinance",
+    "Government Services": "categoryGovernmentServices",
+    "Beauty & Wellness": "categoryBeautyWellness",
+    Education: "categoryEducation",
+    Transport: "categoryTransport",
+    Insurance: "categoryInsurance",
+    "Legal Services": "categoryLegalServices",
 
+    healthcare: "categoryHealthcare",
+    banking_finance: "categoryBankingFinance",
+    government_services: "categoryGovernmentServices",
+    beauty_wellness: "categoryBeautyWellness",
+    education: "categoryEducation",
+    transport: "categoryTransport",
+    insurance: "categoryInsurance",
+    legal_services: "categoryLegalServices",
+};
 
 export default function PopUpWindow({
                                         type,
@@ -29,494 +36,257 @@ export default function PopUpWindow({
                                     }) {
     const { t } = useLanguage();
 
-    if (
-        !type
-        || !appointment
-    ) {
-        return null;
-    }
+    if (!type || !appointment) return null;
 
-    const isConfirmation =
-        type === "confirmation";
+    const isConfirmation = type === "confirmation";
+    const isUrgent = type === "urgent";
+    const isLastMinute = type === "lastMinute";
 
-    const isUrgent =
-        type === "urgent";
+    if (!isConfirmation && !isUrgent && !isLastMinute) return null;
 
-    const isLastMinute =
-        type === "lastMinute";
+    const service = appointment.service ?? "-";
+    const duration = appointment.duration ?? "";
+    const date = appointment.date ?? "";
+    const time = appointment.time ?? "";
 
-    if (
-        !isConfirmation
-        && !isUrgent
-        && !isLastMinute
-    ) {
-        return null;
-    }
-
-
-    const service =
-        appointment.service
-        ?? "-";
-
-    const duration =
-        appointment.duration
-        ?? "";
-
-    const date =
-        appointment.date
-        ?? "";
-
-    const time =
-        appointment.time
-        ?? "";
-
-    const institution =
-        appointment.institution
-        ?? null;
-
-    const institutionImage =
-        institution?.image
-        ?? institution?.photo_url
-        ?? null;
+    const institution = appointment.institution ?? null;
+    const institutionImage = institution?.image ?? institution?.photo_url ?? null;
 
     const institutionCategory =
-        typeof institution?.category
-        === "object"
-            ? institution?.category?.name
-            : institution?.category
-            ?? institution?.category_name
-            ?? null;
+        typeof institution?.category === "object"
+            ? institution?.category?.key ?? institution?.category?.name
+            : institution?.category ?? institution?.category_name ?? null;
+
+    const categoryKey = CATEGORY_TRANSLATIONS[institutionCategory];
+    const translatedCategory =
+        categoryKey && t[categoryKey]
+            ? t[categoryKey]
+            : institutionCategory;
 
     const institutionRating =
-        institution?.rating != null
-        && !Number.isNaN(
-            Number(
-                institution.rating
-            )
-        )
-            ? Number(
-                institution.rating
-            ).toFixed(1)
+        institution?.rating != null &&
+        !Number.isNaN(Number(institution.rating))
+            ? Number(institution.rating).toFixed(1)
             : null;
 
-
     const timeOptions = [
-        {
-            value: 0,
-            label: t.now,
-        },
-        {
-            value: 5,
-            label: `+5 ${t.min}`,
-        },
-        {
-            value: 10,
-            label: `+10 ${t.min}`,
-        },
-        {
-            value: 15,
-            label: `+15 ${t.min}`,
-        },
-    ].filter(
-        (option) =>
-            !isUrgent
-            || availableOptions.includes(
-                option.value
-            )
+        { value: 0, label: t.now },
+        { value: 5, label: `+5 ${t.min}` },
+        { value: 10, label: `+10 ${t.min}` },
+        { value: 15, label: `+15 ${t.min}` },
+    ].filter(option =>
+        !isUrgent ||
+        availableOptions.includes(option.value)
     );
 
+    const popupTitle = isConfirmation
+        ? t.confirmationPopupTitle
+        : isUrgent
+            ? t.urgentPopupTitle
+            : t.lastMinutePopupTitle;
 
-    const popupTitle =
-        isConfirmation
-            ? t.confirmationPopupTitle
-            : isUrgent
-                ? t.urgentPopupTitle
-                : t.lastMinutePopupTitle;
-
-
-    const popupDescription =
-        isConfirmation
-            ? t.confirmationPopupDescription
-            : isUrgent
-                ? t.urgentPopupDescription
-                : t.lastMinutePopupDescription;
-
+    const popupDescription = isConfirmation
+        ? t.confirmationPopupDescription
+        : isUrgent
+            ? t.urgentPopupDescription
+            : t.lastMinutePopupDescription;
 
     return (
         <View
             style={[
                 styles.container,
-                isConfirmation
-                && styles.confirmationContainer,
-                isUrgent
-                && styles.urgentContainer,
-                isLastMinute
-                && styles.lastMinuteContainer,
+                isConfirmation && styles.confirmationContainer,
+                isUrgent && styles.urgentContainer,
+                isLastMinute && styles.lastMinuteContainer,
             ]}
         >
-
             {timeLeft && (
                 <View style={styles.timer}>
-                    <Ionicons
-                        name="timer-outline"
-                        size={16}
-                        color="#111111"
-                    />
-
-                    <Text
-                        style={styles.timerText}
-                    >
-                        {timeLeft}
-                    </Text>
+                    <Ionicons name="timer-outline" size={16} color="#111111"/>
+                    <Text style={styles.timerText}>{timeLeft}</Text>
                 </View>
             )}
 
+            <Text style={styles.title}>{popupTitle}</Text>
+            <Text style={styles.description}>{popupDescription}</Text>
 
-            <Text style={styles.title}>
-                {popupTitle}
-            </Text>
-
-
-            <Text
-                style={styles.description}
-            >
-                {popupDescription}
-            </Text>
-
-
-            {!isConfirmation
-                && institution
-                && (
-                    <View
-                        style={
-                            styles.institutionCard
-                        }
-                    >
-                        {institutionImage ? (
-                            <Image
-                                source={{
-                                    uri:
-                                    institutionImage,
-                                }}
-                                style={
-                                    styles.institutionImage
-                                }
+            {!isConfirmation && institution && (
+                <View style={styles.institutionCard}>
+                    {institutionImage ? (
+                        <Image
+                            source={{ uri: institutionImage }}
+                            style={styles.institutionImage}
+                        />
+                    ) : (
+                        <View
+                            style={[
+                                styles.institutionImage,
+                                {
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                },
+                            ]}
+                        >
+                            <Ionicons
+                                name="business-outline"
+                                size={28}
+                                color="#777777"
                             />
-                        ) : (
-                            <View
-                                style={[
-                                    styles.institutionImage,
-                                    {
-                                        alignItems:
-                                            "center",
-                                        justifyContent:
-                                            "center",
-                                    },
-                                ]}
-                            >
-                                <Ionicons
-                                    name="business-outline"
-                                    size={28}
-                                    color="#777777"
-                                />
+                        </View>
+                    )}
+
+                    <View style={styles.institutionInfo}>
+                        {(translatedCategory || institutionRating) && (
+                            <View style={styles.tagsRow}>
+                                {translatedCategory && (
+                                    <View style={styles.categoryTag}>
+                                        <Text
+                                            style={styles.categoryText}
+                                            numberOfLines={1}
+                                        >
+                                            {translatedCategory}
+                                        </Text>
+                                    </View>
+                                )}
+
+                                {institutionRating && (
+                                    <View style={styles.ratingTag}>
+                                        <Text style={styles.star}>★</Text>
+                                        <Text style={styles.ratingText}>
+                                            {institutionRating}
+                                        </Text>
+                                    </View>
+                                )}
                             </View>
                         )}
 
+                        <Text style={styles.institutionName} numberOfLines={1}>
+                            {institution.name ?? "-"}
+                        </Text>
 
-                        <View
-                            style={
-                                styles.institutionInfo
-                            }
-                        >
-                            {(
-                                institutionCategory
-                                || institutionRating
-                            ) && (
-                                <View
-                                    style={
-                                        styles.tagsRow
-                                    }
-                                >
-                                    {institutionCategory && (
-                                        <View
-                                            style={
-                                                styles.categoryTag
-                                            }
-                                        >
-                                            <Text
-                                                style={
-                                                    styles.categoryText
-                                                }
-                                                numberOfLines={1}
-                                            >
-                                                {
-                                                    institutionCategory
-                                                }
-                                            </Text>
-                                        </View>
-                                    )}
-
-
-                                    {institutionRating && (
-                                        <View
-                                            style={
-                                                styles.ratingTag
-                                            }
-                                        >
-                                            <Text
-                                                style={
-                                                    styles.star
-                                                }
-                                            >
-                                                ★
-                                            </Text>
-
-                                            <Text
-                                                style={
-                                                    styles.ratingText
-                                                }
-                                            >
-                                                {
-                                                    institutionRating
-                                                }
-                                            </Text>
-                                        </View>
-                                    )}
-                                </View>
-                            )}
-
-
-                            <Text
-                                style={
-                                    styles.institutionName
-                                }
-                                numberOfLines={1}
-                            >
-                                {
-                                    institution.name
-                                    ?? "-"
-                                }
+                        {institution.address && (
+                            <Text style={styles.address} numberOfLines={1}>
+                                {institution.address}
                             </Text>
-
-
-                            {institution.address && (
-                                <Text
-                                    style={styles.address}
-                                    numberOfLines={1}
-                                >
-                                    {
-                                        institution.address
-                                    }
-                                </Text>
-                            )}
-                        </View>
+                        )}
                     </View>
-                )}
+                </View>
+            )}
 
-
-            <View
-                style={
-                    styles.appointmentCard
-                }
-            >
-                <View
-                    style={{
-                        flex: 1,
-                        minWidth: 0,
-                        paddingRight: 10,
-                    }}
-                >
-                    <Text
-                        style={styles.serviceName}
-                        numberOfLines={2}
-                    >
+            <View style={styles.appointmentCard}>
+                <View style={{ flex: 1, minWidth: 0, paddingRight: 10 }}>
+                    <Text style={styles.serviceName} numberOfLines={2}>
                         {service}
                     </Text>
 
-                    {duration ? (
-                        <Text
-                            style={styles.duration}
-                        >
+                    {!!duration && (
+                        <Text style={styles.duration}>
                             {duration}
                         </Text>
-                    ) : null}
+                    )}
                 </View>
 
-
-                <View
-                    style={
-                        styles.appointmentRight
-                    }
-                >
-                    {date ? (
-                        <View
-                            style={styles.dateBadge}
-                        >
-                            <Text
-                                style={styles.dateText}
-                                numberOfLines={1}
-                            >
+                <View style={styles.appointmentRight}>
+                    {!!date && (
+                        <View style={styles.dateBadge}>
+                            <Text style={styles.dateText} numberOfLines={1}>
                                 {date}
                             </Text>
                         </View>
-                    ) : null}
+                    )}
 
-
-                    {time ? (
-                        <View
-                            style={styles.timeBadge}
-                        >
+                    {!!time && (
+                        <View style={styles.timeBadge}>
                             <Ionicons
                                 name="time-outline"
                                 size={14}
                                 color="#333333"
                             />
 
-                            <Text
-                                style={styles.timeText}
-                                numberOfLines={1}
-                            >
+                            <Text style={styles.timeText} numberOfLines={1}>
                                 {time}
                             </Text>
                         </View>
-                    ) : null}
+                    )}
                 </View>
             </View>
 
-
             {isConfirmation && (
-                <View
-                    style={
-                        styles.confirmationButtons
-                    }
-                >
+                <View style={styles.confirmationButtons}>
                     <TouchableOpacity
                         style={styles.yesButton}
                         activeOpacity={0.85}
                         onPress={onConfirm}
                     >
-                        <Text
-                            style={
-                                styles.yesButtonText
-                            }
-                        >
+                        <Text style={styles.yesButtonText}>
                             {t.yes}
                         </Text>
                     </TouchableOpacity>
-
 
                     <TouchableOpacity
                         style={styles.noButton}
                         activeOpacity={0.85}
                         onPress={onDecline}
                     >
-                        <Text
-                            style={
-                                styles.noButtonText
-                            }
-                        >
+                        <Text style={styles.noButtonText}>
                             {t.no}
                         </Text>
                     </TouchableOpacity>
                 </View>
             )}
 
-
             {isUrgent && (
                 <>
-                    <View
-                        style={styles.timeOptions}
-                    >
-                        {timeOptions.map(
-                            (option) => (
-                                <TouchableOpacity
-                                    key={
-                                        option.value
-                                    }
-                                    style={
-                                        styles.timeOptionButton
-                                    }
-                                    activeOpacity={0.85}
-                                    onPress={() =>
-                                        onSelectTime?.(
-                                            option.value
-                                        )
-                                    }
-                                >
-                                    <Text
-                                        style={
-                                            styles.timeOptionText
-                                        }
-                                    >
-                                        {
-                                            option.label
-                                        }
-                                    </Text>
-                                </TouchableOpacity>
-                            )
-                        )}
+                    <View style={styles.timeOptions}>
+                        {timeOptions.map(option => (
+                            <TouchableOpacity
+                                key={option.value}
+                                style={styles.timeOptionButton}
+                                activeOpacity={0.85}
+                                onPress={() => onSelectTime?.(option.value)}
+                            >
+                                <Text style={styles.timeOptionText}>
+                                    {option.label}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
                     </View>
 
-
                     <TouchableOpacity
-                        style={
-                            styles.declineButton
-                        }
+                        style={styles.declineButton}
                         activeOpacity={0.85}
                         onPress={onDecline}
                     >
-                        <Text
-                            style={
-                                styles.declineButtonText
-                            }
-                        >
+                        <Text style={styles.declineButtonText}>
                             {t.decline}
                         </Text>
                     </TouchableOpacity>
                 </>
             )}
 
-
             {isLastMinute && (
-                <View
-                    style={
-                        styles.confirmationButtons
-                    }
-                >
+                <View style={styles.confirmationButtons}>
                     <TouchableOpacity
                         style={styles.yesButton}
                         activeOpacity={0.85}
                         onPress={onConfirm}
                     >
-                        <Text
-                            style={
-                                styles.yesButtonText
-                            }
-                        >
-                            {
-                                t.accept
-                                ?? t.yes
-                            }
+                        <Text style={styles.yesButtonText}>
+                            {t.accept}
                         </Text>
                     </TouchableOpacity>
-
 
                     <TouchableOpacity
                         style={styles.noButton}
                         activeOpacity={0.85}
                         onPress={onDecline}
                     >
-                        <Text
-                            style={
-                                styles.noButtonText
-                            }
-                        >
+                        <Text style={styles.noButtonText}>
                             {t.decline}
                         </Text>
                     </TouchableOpacity>
                 </View>
             )}
-
         </View>
     );
 }

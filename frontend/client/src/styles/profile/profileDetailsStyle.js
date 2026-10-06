@@ -95,4 +95,9 @@ export const profileDetailsStyles = StyleSheet.create({
         color: "#222222",
         fontFamily: "Montserrat-Regular",
     },
+    avatarImage: {
+        width: "100%",
+        height: "100%",
+        borderRadius: 999,
+    },
 });

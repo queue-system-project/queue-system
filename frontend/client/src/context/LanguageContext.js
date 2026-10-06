@@ -3,7 +3,6 @@ import * as Localization from "expo-localization";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { authTranslations } from "../translations/authTranslations";
-import { commonTranslations } from "../translations/commonTranslations";
 import { homeTranslations } from "../translations/homeTranslations";
 import { searchTranslations } from "../translations/searchTranslations";
 import { appointmentsTranslations } from "../translations/appointmentsTranslations";
@@ -13,7 +12,6 @@ import { employeeTranslations } from "../translations/employeeTranslations";
 import { notificationsTranslations } from "../translations/notificationsTranslations";
 import { profileTranslations } from "../translations/profileTranslations";
 import { languageTranslations } from "../translations/languageTranslations";
-import { changePasswordTranslations } from "../translations/changePasswordTranslations";
 import { helpTranslations } from "../translations/helpTranslations";
 import { legalTranslations } from "../translations/legalTranslations";
 
@@ -63,7 +61,6 @@ export function LanguageProvider({ children }) {
     };
 
     const t = {
-        ...commonTranslations[language],
         ...authTranslations[language],
         ...homeTranslations[language],
         ...searchTranslations[language],
@@ -74,7 +71,6 @@ export function LanguageProvider({ children }) {
         ...notificationsTranslations[language],
         ...profileTranslations[language],
         ...languageTranslations[language],
-        ...changePasswordTranslations[language],
         ...helpTranslations[language],
         ...legalTranslations[language],
     };

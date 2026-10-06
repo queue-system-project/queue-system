@@ -1,6 +1,6 @@
 export const API_URL = "http://127.0.0.1:8000"; // web
 
-// Для фізичного iPhone:
+// for expo app
 // export const API_URL = "http://192.168.1.3:8000";
 
 

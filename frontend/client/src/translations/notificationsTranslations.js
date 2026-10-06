@@ -11,6 +11,8 @@ export const notificationsTranslations = {
             "Appointment updates and queue changes will appear here.",
 
         details: "Details",
+        date: "Date",
+        time: "Time",
 
         currentWaitingTime: "Current waiting time",
         updatedAt: "Updated at",
@@ -23,7 +25,8 @@ export const notificationsTranslations = {
 
         minutes: "minutes",
 
-        ready: "Ready",
+        waiting: "Waiting",
+        ready: "In service",
         confirmationRequired: "Confirmation required",
         spotAvailable: "Spot available",
         lastChance: "Last chance",
@@ -31,6 +34,8 @@ export const notificationsTranslations = {
         confirmed: "Confirmed",
         next: "Next",
         cancelled: "Cancelled",
+        skipped: "Skipped",
+        missed: "Missed",
     },
 
     pl: {
@@ -45,6 +50,8 @@ export const notificationsTranslations = {
             "Aktualizacje wizyt i zmiany w kolejce pojawią się tutaj.",
 
         details: "Szczegóły",
+        date: "Data",
+        time: "Godzina",
 
         currentWaitingTime: "Aktualny czas oczekiwania",
         updatedAt: "Zaktualizowano o",
@@ -57,7 +64,8 @@ export const notificationsTranslations = {
 
         minutes: "minut",
 
-        ready: "Gotowe",
+        waiting: "Oczekiwanie",
+        ready: "Obsługa trwa",
         confirmationRequired: "Wymagane potwierdzenie",
         spotAvailable: "Dostępne miejsce",
         lastChance: "Ostatnia szansa",
@@ -65,5 +73,7 @@ export const notificationsTranslations = {
         confirmed: "Potwierdzono",
         next: "Następny",
         cancelled: "Anulowano",
+        skipped: "Pominięto",
+        missed: "Nieobecność",
     },
 };

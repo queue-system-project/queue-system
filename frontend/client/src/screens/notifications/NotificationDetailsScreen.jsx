@@ -1,313 +1,123 @@
 import React from "react";
-import {
-    ScrollView,
-    Text,
-    TouchableOpacity,
-    View,
-} from "react-native";
-import {
-    Ionicons,
-} from "@expo/vector-icons";
+import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 
-import {
-    notificationDetailsStyles as styles,
-} from "../../styles/notifications/notificationDetailsStyle";
+import { notificationDetailsStyles as styles } from "../../styles/notifications/notificationDetailsStyle";
+import { useLanguage } from "../../context/LanguageContext";
 
-import {
-    useLanguage,
-} from "../../context/LanguageContext";
-
-
-function DetailRow({
-                       label,
-                       value,
-                   }) {
-    if (
-        value === null
-        ||
-        value === undefined
-        ||
-        value === ""
-    ) {
-        return null;
-    }
+function DetailRow({ label, value }) {
+    if (value === null || value === undefined || value === "") return null;
 
     return (
-        <View
-            style={
-                styles.detailRow
-            }
-        >
-            <Text
-                style={
-                    styles.detailLabel
-                }
-            >
-                {label}
-            </Text>
-
-            <Text
-                style={
-                    styles.detailValue
-                }
-            >
-                {value}
-            </Text>
+        <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>{label}</Text>
+            <Text style={styles.detailValue}>{value}</Text>
         </View>
     );
 }
 
+export default function NotificationDetailsScreen({ navigation, route }) {
+    const { t } = useLanguage();
+    const notification = route?.params?.notification ?? null;
 
-export default function NotificationDetailsScreen({
-                                                      navigation,
-                                                      route,
-                                                  }) {
-    const { t } =
-        useLanguage();
+    if (!notification) return null;
 
-    const notification =
-        route?.params?.notification
-        ?? null;
+    const getStatusText = () => {
+        switch (notification.type) {
+            case "waiting":
+                return t.waiting;
 
+            case "confirmed":
+                return t.confirmed;
 
-    if (!notification) {
-        return null;
-    }
+            case "turn":
+                return t.ready;
 
+            case "confirm":
+                return t.confirmationRequired;
 
-    const getStatusText =
-        () => {
-            switch (
-                notification.type
-                ) {
-                case "waiting":
-                    return (
-                        t.waiting
-                        ?? "Waiting"
-                    );
+            case "available":
+                return t.spotAvailable;
 
-                case "confirmed":
-                    return (
-                        t.confirmed
-                        ?? "Confirmed"
-                    );
+            case "lastChance":
+                return t.lastChance;
 
-                case "turn":
-                    return (
-                        t.ready
-                        ?? "In service"
-                    );
+            case "completed":
+                return t.completed;
 
-                case "confirm":
-                    return (
-                        t.confirmationRequired
-                        ?? "Confirmation required"
-                    );
+            case "cancelled":
+                return t.cancelled;
 
-                case "available":
-                    return (
-                        t.spotAvailable
-                        ?? "Spot available"
-                    );
+            case "skipped":
+                return t.skipped;
 
-                case "lastChance":
-                    return (
-                        t.lastChance
-                        ?? "Last chance"
-                    );
+            case "missed":
+                return t.missed;
 
-                case "completed":
-                    return (
-                        t.completed
-                        ?? "Completed"
-                    );
+            default:
+                return null;
+        }
+    };
 
-                case "cancelled":
-                    return (
-                        t.cancelled
-                        ?? "Cancelled"
-                    );
-
-                case "skipped":
-                    return (
-                        t.skipped
-                        ?? "Skipped"
-                    );
-
-                case "missed":
-                    return (
-                        t.missed
-                        ?? "Missed"
-                    );
-
-                default:
-                    return null;
-            }
-        };
-
-
-    const statusText =
-        getStatusText();
-
+    const statusText = getStatusText();
 
     return (
-        <View
-            style={
-                styles.container
-            }
-        >
-            <View
-                style={
-                    styles.header
-                }
-            >
+        <View style={styles.container}>
+            <View style={styles.header}>
                 <TouchableOpacity
-                    style={
-                        styles.backButton
-                    }
-                    onPress={
-                        () =>
-                            navigation.goBack()
-                    }
+                    style={styles.backButton}
+                    onPress={() => navigation.goBack()}
                     activeOpacity={0.8}
                 >
-                    <Ionicons
-                        name="chevron-back"
-                        size={28}
-                        color="#5657C4"
-                    />
+                    <Ionicons name="chevron-back" size={28} color="#5657C4"/>
                 </TouchableOpacity>
 
-                <Text
-                    style={
-                        styles.headerTitle
-                    }
-                >
-                    {
-                        t.notificationDetailsTitle
-                    }
+                <Text style={styles.headerTitle}>
+                    {t.notificationDetailsTitle}
                 </Text>
             </View>
 
-
             <ScrollView
-                style={
-                    styles.scrollView
-                }
-                contentContainerStyle={
-                    styles.content
-                }
-                showsVerticalScrollIndicator={
-                    false
-                }
+                style={styles.scrollView}
+                contentContainerStyle={styles.content}
+                showsVerticalScrollIndicator={false}
             >
-                <View
-                    style={
-                        styles.titleRow
-                    }
-                >
-                    <Text
-                        style={
-                            styles.title
-                        }
-                    >
-                        {
-                            (
-                                notification.title
-                                ?? ""
-                            )
-                                .replace(
-                                    "🔥",
-                                    ""
-                                )
-                                .trim()
-                        }
+                <View style={styles.titleRow}>
+                    <Text style={styles.title}>
+                        {(notification.title ?? "").replace("🔥", "").trim()}
                     </Text>
 
-                    {
-                        notification.time
-                        &&
-                        (
-                            <Text
-                                style={
-                                    styles.time
-                                }
-                            >
-                                {
-                                    notification.time
-                                }
-                            </Text>
-                        )
-                    }
+                    {!!notification.time && (
+                        <Text style={styles.time}>
+                            {notification.time}
+                        </Text>
+                    )}
                 </View>
 
+                {!!(notification.details ?? notification.message) && (
+                    <Text style={styles.description}>
+                        {notification.details ?? notification.message}
+                    </Text>
+                )}
 
-                {
-                    (
-                        notification.details
-                        ??
-                        notification.message
-                    )
-                    &&
-                    (
-                        <Text
-                            style={
-                                styles.description
-                            }
-                        >
-                            {
-                                notification.details
-                                ??
-                                notification.message
-                            }
-                        </Text>
-                    )
-                }
-
-
-                <View
-                    style={
-                        styles.detailsSection
-                    }
-                >
-                    <Text
-                        style={
-                            styles.sectionTitle
-                        }
-                    >
+                <View style={styles.detailsSection}>
+                    <Text style={styles.sectionTitle}>
                         {t.details}
                     </Text>
 
-
                     <DetailRow
-                        label={
-                            t.status
-                        }
-                        value={
-                            statusText
-                        }
+                        label={t.status}
+                        value={statusText}
                     />
 
-
                     <DetailRow
-                        label={
-                            t.date
-                            ?? "Date"
-                        }
-                        value={
-                            notification.date
-                        }
+                        label={t.date}
+                        value={notification.date}
                     />
 
-
                     <DetailRow
-                        label={
-                            t.updatedAt
-                            ?? "Time"
-                        }
-                        value={
-                            notification.time
-                        }
+                        label={t.time}
+                        value={notification.time}
                     />
                 </View>
             </ScrollView>

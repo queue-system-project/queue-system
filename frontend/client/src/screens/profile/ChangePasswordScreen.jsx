@@ -11,9 +11,12 @@ import {
 
 import { changePasswordStyles as styles } from "../../styles/profile/changePasswordStyle";
 import { useLanguage } from "../../context/LanguageContext";
+import {changePassword} from "../../api/profile/profileApi";
+import {useMessage} from "../../context/MessageContext";
 
 export default function ChangePasswordScreen({ navigation }) {
     const { t } = useLanguage();
+    const { showMessage } = useMessage();
 
     const [currentPassword, setCurrentPassword] = useState("");
     const [newPassword, setNewPassword] = useState("");
@@ -30,7 +33,71 @@ export default function ChangePasswordScreen({ navigation }) {
     const confirmPasswordRef = useRef(null);
 
     const handleChangePassword = async () => {
-        // Тут потім буде API для зміни пароля
+        if (
+            !currentPassword ||
+            !newPassword ||
+            !confirmPassword
+        ) {
+            showMessage(
+                t.fillAllFields,
+                "error"
+            );
+            return;
+        }
+
+        if (newPassword !== confirmPassword) {
+            showMessage(
+                t.passwordsDoNotMatch,
+                "error"
+            );
+            return;
+        }
+
+        if (currentPassword === newPassword) {
+            showMessage(
+                t.newPasswordMustBeDifferent,
+                "error"
+            );
+            return;
+        }
+
+        try {
+            setLoading(true);
+
+            await changePassword(
+                currentPassword,
+                newPassword
+            );
+
+            setCurrentPassword("");
+            setNewPassword("");
+            setConfirmPassword("");
+
+            showMessage(
+                t.changePasswordSuccess,
+                "success"
+            );
+
+            navigation.goBack();
+        } catch (error) {
+            const message =
+                error?.message ===
+                "Current password is incorrect"
+                    ? t.currentPasswordIncorrect
+                    : t.changePasswordError;
+
+            showMessage(
+                message,
+                "error"
+            );
+
+            console.error(
+                "Change password error:",
+                error
+            );
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (

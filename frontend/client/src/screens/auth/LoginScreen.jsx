@@ -1,14 +1,5 @@
 import React, { useState } from "react";
-import {
-    View,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    ActivityIndicator,
-    KeyboardAvoidingView,
-    Platform,
-    Image,
-} from "react-native";
+import {View, Text, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, Image,} from "react-native";
 
 import { useLanguage } from "../../context/LanguageContext";
 import { useMessage } from "../../context/MessageContext";
@@ -55,22 +46,21 @@ export default function LoginScreen({ navigation }) {
             await saveAuthData(data);
 
             const user = await getUser(data.user_id);
-
             signIn(user);
 
-            if (!user.first_name || !user.last_name) {
-                navigation.reset({
-                    index: 0,
-                    routes: [{ name: "CompleteProfile" }],
-                });
-            } else {
-                navigation.reset({
-                    index: 0,
-                    routes: [{ name: "Home" }],
-                });
-            }
+            navigation.reset({
+                index: 0,
+                routes: [{
+                    name:
+                        !user.first_name || !user.last_name
+                            ? "CompleteProfile"
+                            : "Home",
+                }],
+            });
+
         } catch (error) {
-            showMessage(error.message, "error");
+            console.error("LOGIN ERROR:", error);
+            showMessage(t.loginError, "error");
         } finally {
             setLoading(false);
         }
@@ -86,7 +76,6 @@ export default function LoginScreen({ navigation }) {
                 onPress={() => navigation.navigate("Language")}
             >
                 <Text style={styles.languageText}>{t.languageName}</Text>
-
                 <Image
                     source={require("../../../assets/down-arrow.png")}
                     style={styles.languageArrow}
@@ -133,9 +122,7 @@ export default function LoginScreen({ navigation }) {
                     secureTextEntry={hidePassword}
                 />
 
-                <TouchableOpacity
-                    onPress={() => setHidePassword(!hidePassword)}
-                >
+                <TouchableOpacity onPress={() => setHidePassword(!hidePassword)}>
                     <Image
                         source={
                             hidePassword
@@ -151,9 +138,7 @@ export default function LoginScreen({ navigation }) {
                 style={styles.forgotButton}
                 onPress={() => navigation.navigate("ForgotPassword")}
             >
-                <Text style={styles.forgotText}>
-                    {t.forgotPassword}
-                </Text>
+                <Text style={styles.forgotText}>{t.forgotPassword}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -161,13 +146,10 @@ export default function LoginScreen({ navigation }) {
                 onPress={handleLogin}
                 disabled={loading}
             >
-                {loading ? (
-                    <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                    <Text style={styles.mainButtonText}>
-                        {t.loginButton}
-                    </Text>
-                )}
+                {loading
+                    ? <ActivityIndicator color="#FFFFFF"/>
+                    : <Text style={styles.mainButtonText}>{t.loginButton}</Text>
+                }
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -175,13 +157,8 @@ export default function LoginScreen({ navigation }) {
                 activeOpacity={1}
                 onPress={() => navigation.navigate("Register")}
             >
-                <Text style={styles.bottomText}>
-                    {t.noAccount}{" "}
-                </Text>
-
-                <Text style={styles.linkText}>
-                    {t.registerLink}
-                </Text>
+                <Text style={styles.bottomText}>{t.noAccount}{" "}</Text>
+                <Text style={styles.linkText}>{t.registerLink}</Text>
             </TouchableOpacity>
         </KeyboardAvoidingView>
     );

@@ -1,10 +1,5 @@
 import React from "react";
-import {
-    ScrollView,
-    Text,
-    TouchableOpacity,
-    View,
-} from "react-native";
+import {ScrollView, Text, TouchableOpacity, View,} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { termsStyles as styles } from "../../styles/profile/termsConditionsStyle";
@@ -21,11 +16,7 @@ export default function TermsConditionsScreen({ navigation }) {
                     onPress={() => navigation.goBack()}
                     activeOpacity={0.8}
                 >
-                    <Ionicons
-                        name="chevron-back"
-                        size={28}
-                        color="#5657C4"
-                    />
+                    <Ionicons name="chevron-back" size={28} color="#5657C4"/>
                 </TouchableOpacity>
 
                 <Text style={styles.title}>

@@ -1,15 +1,6 @@
 import React, { useEffect, useState } from "react";
-import {
-    Image,
-    ScrollView,
-    Text,
-    TouchableOpacity,
-    View,
-} from "react-native";
-import {
-    Ionicons,
-    MaterialCommunityIcons,
-} from "@expo/vector-icons";
+import { Image, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { homeStyles as styles } from "../../styles/home/homeStyles";
 import EmptyState from "../../components/EmptyState";
@@ -18,8 +9,7 @@ import { useLanguage } from "../../context/LanguageContext";
 import { getCategories } from "../../api/categories/categoriesApi";
 import { getInstitutions } from "../../api/institutions/institutionsApi";
 import { getRecentAppointments } from "../../api/appointments/appointmentsApi";
-import {getCurrentLocation, sortInstitutionsByDistance,} from "../../utils/locationUtils";
-
+import { getCurrentLocation, sortInstitutionsByDistance } from "../../utils/locationUtils";
 
 const categoryIcons = {
     healthcare: "hospital-building",
@@ -32,7 +22,6 @@ const categoryIcons = {
     legal_services: "scale-balance",
 };
 
-
 const categoryColors = {
     healthcare: "#1DB5D8",
     banking_finance: "#67C96B",
@@ -44,21 +33,10 @@ const categoryColors = {
     legal_services: "#E27A5F",
 };
 
-
-function ClinicCard({
-                        clinic,
-                        appointment = null,
-                        onPress,
-                    }) {
-    const image =
-        clinic.photo_url || clinic.image;
-
-    const category =
-        clinic.category_name || clinic.category;
-
-    const hasRealImage =
-        image &&
-        !image.includes("example.com");
+function ClinicCard({ clinic, appointment = null, onPress, t }) {
+    const image = clinic.photo_url || clinic.image;
+    const category = clinic.category_name || clinic.category;
+    const hasRealImage = image && !image.includes("example.com");
 
     return (
         <TouchableOpacity
@@ -72,18 +50,10 @@ function ClinicCard({
             onPress={onPress}
         >
             <View style={styles.clinicTop}>
-
                 {hasRealImage ? (
-                    <Image
-                        source={{ uri: image }}
-                        style={styles.clinicImage}
-                    />
+                    <Image source={{ uri: image }} style={styles.clinicImage}/>
                 ) : (
-                    <View
-                        style={
-                            styles.clinicImagePlaceholder
-                        }
-                    >
+                    <View style={styles.clinicImagePlaceholder}>
                         <MaterialCommunityIcons
                             name="office-building"
                             size={30}
@@ -93,77 +63,41 @@ function ClinicCard({
                 )}
 
                 <View style={styles.clinicInfo}>
-
                     <View style={styles.tagsRow}>
-
                         <View style={styles.categoryTag}>
-                            <Text
-                                style={
-                                    styles.categoryTagText
-                                }
-                            >
-                                {category || "Institution"}
+                            <Text style={styles.categoryTagText}>
+                                {category || t.institution}
                             </Text>
                         </View>
 
                         {clinic.rating != null && (
                             <View style={styles.ratingTag}>
-
-                                <Text style={styles.star}>
-                                    ★
+                                <Text style={styles.star}>★</Text>
+                                <Text style={styles.ratingText}>
+                                    {Number(clinic.rating).toFixed(1)}
                                 </Text>
-
-                                <Text
-                                    style={
-                                        styles.ratingText
-                                    }
-                                >
-                                    {Number(
-                                        clinic.rating
-                                    ).toFixed(1)}
-                                </Text>
-
                             </View>
                         )}
-
                     </View>
 
-                    <Text
-                        style={styles.clinicName}
-                        numberOfLines={1}
-                    >
+                    <Text style={styles.clinicName} numberOfLines={1}>
                         {clinic.name}
                     </Text>
 
-                    <Text
-                        style={styles.clinicAddress}
-                        numberOfLines={1}
-                    >
+                    <Text style={styles.clinicAddress} numberOfLines={1}>
                         {clinic.address}
                     </Text>
-
                 </View>
             </View>
 
-
             {appointment && (
                 <View style={styles.appointmentInfo}>
-
                     <View>
-                        <Text
-                            style={
-                                styles.appointmentTitle
-                            }
-                            numberOfLines={2}
-                        >
+                        <Text style={styles.appointmentTitle} numberOfLines={2}>
                             {appointment.service}
                         </Text>
 
-                        <Text
-                            style={
-                                styles.appointmentDuration
-                            }
-                        >
+                        <Text style={styles.appointmentDuration}>
                             {appointment.duration}
                         </Text>
                     </View>
@@ -174,92 +108,120 @@ function ClinicCard({
                             {appointment.time}
                         </Text>
                     </View>
-
                 </View>
             )}
-
         </TouchableOpacity>
     );
 }
 
-
-export default function SeeAllScreen({route, navigation,}) {
+export default function SeeAllScreen({ route, navigation }) {
     const { t } = useLanguage();
     const { type } = route.params;
 
     const [categories, setCategories] = useState([]);
     const [institutions, setInstitutions] = useState([]);
-    const [recentAppointments, setRecentAppointments,] = useState([]);
+    const [recentAppointments, setRecentAppointments] = useState([]);
     const [nearbyInstitutions, setNearbyInstitutions] = useState([]);
 
+    const getCategoryName = category => {
+        const categoryMap = {
+            healthcare: t.categoryHealthcare,
+            banking_finance: t.categoryBankingFinance,
+            government_services: t.categoryGovernmentServices,
+            beauty_wellness: t.categoryBeautyWellness,
+            education: t.categoryEducation,
+            transport: t.categoryTransport,
+            insurance: t.categoryInsurance,
+            legal_services: t.categoryLegalServices,
+
+            Healthcare: t.categoryHealthcare,
+            "Banking & Finance": t.categoryBankingFinance,
+            "Government Services": t.categoryGovernmentServices,
+            "Beauty & Wellness": t.categoryBeautyWellness,
+            Education: t.categoryEducation,
+            Transport: t.categoryTransport,
+            Insurance: t.categoryInsurance,
+            "Legal Services": t.categoryLegalServices,
+        };
+
+        return categoryMap[category] ?? category;
+    };
+
+    const formatDate = value => {
+        if (!value) return "";
+
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return "";
+
+        return date.toLocaleDateString(t.locale || "en-GB", {
+            day: "2-digit",
+            month: "long",
+            year: "numeric",
+        });
+    };
+
+    const formatTime = value => {
+        if (!value) return "";
+
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return "";
+
+        return date.toLocaleTimeString(t.locale || "en-GB", {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+        });
+    };
 
     useEffect(() => {
         const loadData = async () => {
             try {
                 if (type === "categories") {
-                    const data =
-                        await getCategories();
-
+                    const data = await getCategories();
                     setCategories(data);
                     return;
                 }
 
                 if (type === "recommended") {
-                    const data =
-                        await getInstitutions();
-
+                    const data = await getInstitutions();
                     setInstitutions(data);
                     return;
                 }
 
                 if (type === "appointments") {
-                    const data =
-                        await getRecentAppointments();
-
+                    const data = await getRecentAppointments();
                     setRecentAppointments(data);
                     return;
                 }
 
                 if (type === "nearby") {
-                    const data =
-                        await getInstitutions();
+                    const data = await getInstitutions();
 
                     try {
-                        const userLocation =
-                            await getCurrentLocation();
+                        const userLocation = await getCurrentLocation();
 
                         if (!userLocation) {
                             setNearbyInstitutions([]);
                             return;
                         }
 
-                        const nearby =
-                            sortInstitutionsByDistance(
-                                data,
-                                userLocation
-                            );
-
-                        setNearbyInstitutions(nearby);
-                    } catch (locationError) {
-                        console.log(
-                            "LOCATION ERROR:",
-                            locationError
+                        setNearbyInstitutions(
+                            sortInstitutionsByDistance(data, userLocation)
                         );
 
+                    } catch (locationError) {
+                        console.log("LOCATION ERROR:", locationError);
                         setNearbyInstitutions([]);
                     }
                 }
+
             } catch (error) {
-                console.log(
-                    "SEE ALL DATA ERROR:",
-                    error
-                );
+                console.log("SEE ALL DATA ERROR:", error);
             }
         };
 
         loadData();
     }, [type]);
-
 
     const titles = {
         categories: t.categories,
@@ -268,329 +230,242 @@ export default function SeeAllScreen({route, navigation,}) {
         nearby: t.clinicsNearYou,
     };
 
-
     return (
         <View style={styles.container}>
-
             {/* HEADER */}
             <View style={styles.seeAllHeader}>
-
                 <TouchableOpacity
                     style={styles.backButton}
-                    onPress={() =>
-                        navigation.goBack()
-                    }
+                    onPress={() => navigation.goBack()}
                 >
-                    <Ionicons
-                        name="chevron-back"
-                        size={28}
-                        color="#5657C4"
-                    />
+                    <Ionicons name="chevron-back" size={28} color="#5657C4"/>
                 </TouchableOpacity>
 
                 <Text style={styles.seeAllTitle}>
                     {titles[type]}
                 </Text>
-
             </View>
-
 
             <ScrollView
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={
-                    styles.seeAllContent
-                }
+                contentContainerStyle={styles.seeAllContent}
             >
-
                 {/* CATEGORIES */}
                 {type === "categories" && (
-                    <View
-                        style={
-                            styles.categoriesGrid
-                        }
-                    >
-                        {categories.map(
-                            (category) => (
-                                <TouchableOpacity
-                                    key={category.id}
-                                    style={
-                                        styles.categoryCardLarge
-                                    }
-                                    activeOpacity={0.8}
-                                    onPress={() =>
-                                        navigation.navigate(
-                                            "Search",
-                                            {
-                                                category:
-                                                category.name,
-                                            }
-                                        )
-                                    }
+                    <View style={styles.categoriesGrid}>
+                        {categories.map(category => (
+                            <TouchableOpacity
+                                key={category.id}
+                                style={styles.categoryCardLarge}
+                                activeOpacity={0.8}
+                                onPress={() =>
+                                    navigation.navigate("Search", {
+                                        category: category.name,
+                                    })
+                                }
+                            >
+                                <MaterialCommunityIcons
+                                    name={categoryIcons[category.key] || "shape-outline"}
+                                    size={42}
+                                    color={categoryColors[category.key] || "#858585"}
+                                />
+
+                                <Text
+                                    style={styles.categoryCardLargeTitle}
+                                    numberOfLines={2}
                                 >
-                                    <MaterialCommunityIcons
-                                        name={
-                                            categoryIcons[
-                                                category.key
-                                                ] ||
-                                            "shape-outline"
-                                        }
-                                        size={42}
-                                        color={
-                                            categoryColors[
-                                                category.key
-                                                ] ||
-                                            "#858585"
-                                        }
-                                    />
-
-                                    <Text
-                                        style={
-                                            styles.categoryCardLargeTitle
-                                        }
-                                        numberOfLines={2}
-                                    >
-                                        {category.name}
-                                    </Text>
-
-                                </TouchableOpacity>
-                            )
-                        )}
+                                    {getCategoryName(category.key || category.name)}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
                     </View>
                 )}
-
 
                 {/* RECOMMENDED */}
                 {type === "recommended" && (
-                    <View
-                        style={
-                            styles.verticalCards
-                        }
-                    >
+                    <View style={styles.verticalCards}>
                         {institutions.length === 0 ? (
                             <EmptyState
-                                title={
-                                    t.noRecommendations
-                                }
-                                description={
-                                    t.recommendedEmpty
-                                }
-                                style={
-                                    styles.emptyState
-                                }
-                                titleStyle={
-                                    styles.emptyTitle
-                                }
-                                descriptionStyle={
-                                    styles.emptyDescription
-                                }
+                                title={t.noRecommendations}
+                                description={t.recommendedEmpty}
+                                style={styles.emptyState}
+                                titleStyle={styles.emptyTitle}
+                                descriptionStyle={styles.emptyDescription}
                             />
                         ) : (
-                            institutions.map(
-                                (institution) => (
-                                    <ClinicCard
-                                        key={
-                                            institution.id
-                                        }
-                                        clinic={
-                                            institution
-                                        }
-                                        onPress={() =>
-                                            navigation.navigate(
-                                                "InstitutionDetails",
-                                                {
-                                                    institution,
-                                                }
-                                            )
-                                        }
-                                    />
-                                )
-                            )
+                            institutions.map(institution => (
+                                <ClinicCard
+                                    key={institution.id}
+                                    t={t}
+                                    clinic={{
+                                        ...institution,
+                                        category: getCategoryName(
+                                            institution.category?.key ??
+                                            institution.category?.name ??
+                                            institution.category
+                                        ),
+                                    }}
+                                    onPress={() =>
+                                        navigation.navigate("InstitutionDetails", {
+                                            institution,
+                                        })
+                                    }
+                                />
+                            ))
                         )}
                     </View>
                 )}
-
 
                 {/* APPOINTMENTS */}
                 {type === "appointments" && (
-                    <View
-                        style={
-                            styles.verticalCards
-                        }
-                    >
-                        {recentAppointments.length ===
-                        0 ? (
+                    <View style={styles.verticalCards}>
+                        {recentAppointments.length === 0 ? (
                             <EmptyState
-                                title={
-                                    t.noRecentAppointments
-                                }
-                                description={
-                                    t.recentAppointmentsEmpty
-                                }
-                                style={
-                                    styles.emptyState
-                                }
-                                titleStyle={
-                                    styles.emptyTitle
-                                }
-                                descriptionStyle={
-                                    styles.emptyDescription
-                                }
+                                title={t.noRecentAppointments}
+                                description={t.recentAppointmentsEmpty}
+                                style={styles.emptyState}
+                                titleStyle={styles.emptyTitle}
+                                descriptionStyle={styles.emptyDescription}
                             />
                         ) : (
-                            recentAppointments.map(
-                                (appointment) => {
-                                    const clinic = {
-                                        id:
-                                        appointment
-                                            .institution
-                                            .id,
+                            recentAppointments.map(appointment => {
+                                const institution = appointment.institution ?? {};
 
-                                        name:
-                                        appointment
-                                            .institution
-                                            .name,
+                                const category =
+                                    institution.category?.key ??
+                                    institution.category?.name ??
+                                    institution.category_name ??
+                                    institution.category ??
+                                    null;
 
-                                        address:
-                                        appointment
-                                            .institution
-                                            .address,
+                                const clinic = {
+                                    id: institution.id,
+                                    name: institution.name,
+                                    address: institution.address,
+                                    photo_url: institution.photo_url,
+                                    rating: institution.rating,
+                                    category: getCategoryName(category),
+                                };
 
-                                        photo_url:
-                                        appointment
-                                            .institution
-                                            .photo_url,
-                                    };
+                                const appointmentTime =
+                                    appointment.actual_end ??
+                                    appointment.actual_start ??
+                                    null;
 
+                                const serviceName =
+                                    appointment.service?.name ??
+                                    appointment.service_name ??
+                                    "-";
 
-                                    const formattedAppointment = {
-                                        ...appointment,
+                                const formattedAppointment = {
+                                    ...appointment,
 
-                                        service:
-                                        appointment
-                                            .service_name,
+                                    service: serviceName,
 
-                                        duration:
-                                            appointment
-                                                .actual_duration !=
-                                            null
-                                                ? `${appointment.actual_duration} min`
+                                    duration:
+                                        appointment.actual_duration != null
+                                            ? `${appointment.actual_duration} ${t.min}`
+                                            : appointment.standard_duration != null
+                                                ? `${appointment.standard_duration} ${t.min}`
                                                 : "",
 
-                                        date:
-                                            appointment
-                                                .actual_end
-                                                ? new Date(
-                                                    appointment.actual_end
-                                                ).toLocaleDateString(
-                                                    "en-GB",
-                                                    {
-                                                        day: "2-digit",
-                                                        month: "long",
-                                                        year: "numeric",
-                                                    }
-                                                )
-                                                : "",
+                                    date: formatDate(appointmentTime),
+                                    time: formatTime(appointmentTime),
 
-                                        time:
-                                            appointment
-                                                .actual_end
-                                                ? new Date(
-                                                    appointment.actual_end
-                                                ).toLocaleTimeString(
-                                                    "en-GB",
-                                                    {
-                                                        hour: "2-digit",
-                                                        minute: "2-digit",
-                                                    }
-                                                )
-                                                : "",
-                                    };
+                                    institution,
+                                    institutionId:
+                                        appointment.institution_id ??
+                                        institution.id ??
+                                        null,
 
+                                    employee: appointment.employee ?? null,
 
-                                    return (
-                                        <ClinicCard
-                                            key={
-                                                appointment.id
-                                            }
-                                            clinic={
-                                                clinic
-                                            }
-                                            appointment={
-                                                formattedAppointment
-                                            }
-                                            onPress={() =>
-                                                navigation.navigate(
-                                                    "AppointmentDetails",
-                                                    {
-                                                        appointment:
-                                                            {
-                                                                ...formattedAppointment,
-                                                                clinic,
-                                                            },
-                                                    }
-                                                )
-                                            }
-                                        />
-                                    );
-                                }
-                            )
-                        )}
-                    </View>
-                )}
+                                    doctor: appointment.employee
+                                        ? [
+                                            appointment.employee.first_name,
+                                            appointment.employee.last_name,
+                                        ].filter(Boolean).join(" ")
+                                        : t.notAssigned,
 
+                                    room:
+                                        appointment.employee?.room ??
+                                        "—",
 
-                {/* NEARBY */}
-                {type === "nearby" && (
-                    <View
-                        style={
-                            styles.verticalCards
-                        }
-                    >
-                        {nearbyInstitutions.length === 0 ? (
-                            <EmptyState
-                                title={
-                                    t.noNearbyClinics
-                                }
-                                description={
-                                    t.nearbyClinicsEmpty
-                                }
-                                style={
-                                    styles.emptyState
-                                }
-                                titleStyle={
-                                    styles.emptyTitle
-                                }
-                                descriptionStyle={
-                                    styles.emptyDescription
-                                }
-                            />
-                        ) : (
-                            nearbyInstitutions.map(
-                                (institution) => (
+                                    institutionName:
+                                        institution.name ??
+                                        null,
+
+                                    institutionAddress:
+                                        institution.address ??
+                                        null,
+
+                                    institutionPhoto:
+                                        institution.photo_url ??
+                                        null,
+
+                                    institutionRating:
+                                        institution.rating ??
+                                        null,
+
+                                    institutionCategory:
+                                        institution.category ??
+                                        null,
+                                };
+
+                                return (
                                     <ClinicCard
-                                        key={
-                                            institution.id
-                                        }
-                                        clinic={
-                                            institution
-                                        }
+                                        key={appointment.queue_entry_id ?? appointment.id}
+                                        t={t}
+                                        clinic={clinic}
+                                        appointment={formattedAppointment}
                                         onPress={() =>
                                             navigation.navigate(
-                                                "InstitutionDetails",
-                                                {
-                                                    institution,
-                                                }
+                                                "AppointmentDetails",
+                                                { appointment: formattedAppointment }
                                             )
                                         }
                                     />
-                                )
-                            )
+                                );
+                            })
                         )}
                     </View>
                 )}
 
+                {/* NEARBY */}
+                {type === "nearby" && (
+                    <View style={styles.verticalCards}>
+                        {nearbyInstitutions.length === 0 ? (
+                            <EmptyState
+                                title={t.noNearbyClinics}
+                                description={t.nearbyClinicsEmpty}
+                                style={styles.emptyState}
+                                titleStyle={styles.emptyTitle}
+                                descriptionStyle={styles.emptyDescription}
+                            />
+                        ) : (
+                            nearbyInstitutions.map(institution => (
+                                <ClinicCard
+                                    key={institution.id}
+                                    t={t}
+                                    clinic={{
+                                        ...institution,
+                                        category: getCategoryName(
+                                            institution.category?.key ??
+                                            institution.category?.name ??
+                                            institution.category
+                                        ),
+                                    }}
+                                    onPress={() =>
+                                        navigation.navigate("InstitutionDetails", {
+                                            institution,
+                                        })
+                                    }
+                                />
+                            ))
+                        )}
+                    </View>
+                )}
             </ScrollView>
-
         </View>
     );
 }

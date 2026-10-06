@@ -1,55 +1,31 @@
 import React, { useEffect, useMemo, useState } from "react";
-import {
-    Image,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
-} from "react-native";
-import {
-    Ionicons,
-    MaterialCommunityIcons,
-} from "@expo/vector-icons";
+import { Image, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 
 import BottomNavigation from "../../components/BottomNavigation";
 import { institutionDetailsStyles as styles } from "../../styles/institution/institutionDetailsStyle";
 import { useLanguage } from "../../context/LanguageContext";
 import InstitutionMap from "../../components/InstitutionMap/InstitutionMap";
-
 import {
     getInstitutionServices,
     getInstitutionWorkingHours,
 } from "../../api/institutions/institutionsApi";
 
-
 const DAYS = [
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-    "Sunday",
+    "Monday", "Tuesday", "Wednesday", "Thursday",
+    "Friday", "Saturday", "Sunday",
 ];
-
 
 function buildWorkingHours(workingHours) {
     const hoursByDay = new Map(
-        workingHours.map((item) => [
-            item.day_of_week,
-            item,
-        ])
+        workingHours.map(item => [item.day_of_week, item])
     );
 
     return DAYS.map((day, index) => {
         const workingHour = hoursByDay.get(index);
 
         if (!workingHour) {
-            return {
-                day,
-                closed: true,
-            };
+            return { day, closed: true };
         }
 
         return {
@@ -61,38 +37,44 @@ function buildWorkingHours(workingHours) {
     });
 }
 
-
-export default function InstitutionDetailsScreen({
-                                                     navigation,
-                                                     route,
-                                                 }) {
+export default function InstitutionDetailsScreen({ navigation, route }) {
     const { t } = useLanguage();
 
-    const [activeTab, setActiveTab] =
-        useState("info");
+    const [activeTab, setActiveTab] = useState("info");
+    const [search, setSearch] = useState("");
+    const [services, setServices] = useState([]);
+    const [workingHours, setWorkingHours] = useState([]);
+    const [loadingServices, setLoadingServices] = useState(true);
+    const [loadingWorkingHours, setLoadingWorkingHours] = useState(true);
 
-    const [search, setSearch] =
-        useState("");
+    const selectedInstitution = route.params?.institution;
 
-    const [services, setServices] =
-        useState([]);
+    const getCategoryName = category => {
+        const categoryMap = {
+            Healthcare: t.categoryHealthcare,
+            "Banking & Finance": t.categoryBankingFinance,
+            "Government Services": t.categoryGovernmentServices,
+            "Beauty & Wellness": t.categoryBeautyWellness,
+            Education: t.categoryEducation,
+            Transport: t.categoryTransport,
+            Insurance: t.categoryInsurance,
+            "Legal Services": t.categoryLegalServices,
 
-    const [workingHours, setWorkingHours] =
-        useState([]);
+            healthcare: t.categoryHealthcare,
+            banking_finance: t.categoryBankingFinance,
+            government_services: t.categoryGovernmentServices,
+            beauty_wellness: t.categoryBeautyWellness,
+            education: t.categoryEducation,
+            transport: t.categoryTransport,
+            insurance: t.categoryInsurance,
+            legal_services: t.categoryLegalServices,
+        };
 
-    const [loadingServices, setLoadingServices] =
-        useState(true);
-
-    const [loadingWorkingHours, setLoadingWorkingHours] =
-        useState(true);
-
-    const selectedInstitution =
-        route.params?.institution;
+        return categoryMap[category] ?? category;
+    };
 
     useEffect(() => {
-        if (!selectedInstitution?.id) {
-            return;
-        }
+        if (!selectedInstitution?.id) return;
 
         let isMounted = true;
 
@@ -101,34 +83,21 @@ export default function InstitutionDetailsScreen({
             setLoadingWorkingHours(true);
 
             try {
-                const [
-                    servicesData,
-                    workingHoursData,
-                ] = await Promise.all([
-                    getInstitutionServices(
-                        selectedInstitution.id
-                    ),
-                    getInstitutionWorkingHours(
-                        selectedInstitution.id
-                    ),
+                const [servicesData, workingHoursData] = await Promise.all([
+                    getInstitutionServices(selectedInstitution.id),
+                    getInstitutionWorkingHours(selectedInstitution.id),
                 ]);
 
-                if (!isMounted) {
-                    return;
-                }
+                if (!isMounted) return;
 
                 setServices(
-                    servicesData.filter(
-                        (service) =>
-                            service.is_active !== false
-                    )
+                    servicesData.filter(service => service.is_active !== false)
                 );
 
                 setWorkingHours(
-                    buildWorkingHours(
-                        workingHoursData
-                    )
+                    buildWorkingHours(workingHoursData)
                 );
+
             } catch (error) {
                 console.error(
                     "Failed to load institution details:",
@@ -139,6 +108,7 @@ export default function InstitutionDetailsScreen({
                     setServices([]);
                     setWorkingHours([]);
                 }
+
             } finally {
                 if (isMounted) {
                     setLoadingServices(false);
@@ -154,22 +124,15 @@ export default function InstitutionDetailsScreen({
         };
     }, [selectedInstitution?.id]);
 
-
     const filteredServices = useMemo(() => {
-        const normalizedSearch =
-            search.trim().toLowerCase();
+        const normalizedSearch = search.trim().toLowerCase();
 
-        if (!normalizedSearch) {
-            return services;
-        }
+        if (!normalizedSearch) return services;
 
-        return services.filter((service) =>
-            service.name
-                .toLowerCase()
-                .includes(normalizedSearch)
+        return services.filter(service =>
+            service.name.toLowerCase().includes(normalizedSearch)
         );
     }, [services, search]);
-
 
     if (!selectedInstitution) {
         return (
@@ -177,38 +140,34 @@ export default function InstitutionDetailsScreen({
                 <View style={styles.header}>
                     <TouchableOpacity
                         style={styles.backButton}
-                        onPress={() =>
-                            navigation.goBack()
-                        }
+                        onPress={() => navigation.goBack()}
                         activeOpacity={0.8}
                     >
-                        <Ionicons
-                            name="chevron-back"
-                            size={28}
-                            color="#5657C4"
-                        />
+                        <Ionicons name="chevron-back" size={28} color="#5657C4"/>
                     </TouchableOpacity>
                 </View>
 
                 <View style={styles.tabContent}>
                     <Text style={styles.noServices}>
-                        Institution not found
+                        {t.institutionNotFound}
                     </Text>
                 </View>
 
-                <BottomNavigation
-                    navigation={navigation}
-                />
+                <BottomNavigation navigation={navigation}/>
             </View>
         );
     }
 
-
     const hasRealImage =
         selectedInstitution.photo_url &&
-        !selectedInstitution.photo_url.includes(
-            "example.com"
-        );
+        !selectedInstitution.photo_url.includes("example.com");
+
+    const categoryValue =
+        selectedInstitution.category?.key ??
+        selectedInstitution.category?.name ??
+        selectedInstitution.category_name ??
+        selectedInstitution.category ??
+        null;
 
     return (
         <View style={styles.container}>
@@ -222,31 +181,19 @@ export default function InstitutionDetailsScreen({
                 <View style={styles.header}>
                     <TouchableOpacity
                         style={styles.backButton}
-                        onPress={() =>
-                            navigation.goBack()
-                        }
+                        onPress={() => navigation.goBack()}
                         activeOpacity={0.8}
                     >
-                        <Ionicons
-                            name="chevron-back"
-                            size={28}
-                            color="#5657C4"
-                        />
+                        <Ionicons name="chevron-back" size={28} color="#5657C4"/>
                     </TouchableOpacity>
                 </View>
-
 
                 {/* INSTITUTION */}
                 <View style={styles.institution}>
                     {hasRealImage ? (
                         <Image
-                            source={{
-                                uri:
-                                selectedInstitution.photo_url,
-                            }}
-                            style={
-                                styles.institutionImage
-                            }
+                            source={{ uri: selectedInstitution.photo_url }}
+                            style={styles.institutionImage}
                         />
                     ) : (
                         <View
@@ -255,8 +202,7 @@ export default function InstitutionDetailsScreen({
                                 {
                                     alignItems: "center",
                                     justifyContent: "center",
-                                    backgroundColor:
-                                        "#F0F0FA",
+                                    backgroundColor: "#F0F0FA",
                                 },
                             ]}
                         >
@@ -268,90 +214,50 @@ export default function InstitutionDetailsScreen({
                         </View>
                     )}
 
-                    <View
-                        style={styles.institutionInfo}
-                    >
+                    <View style={styles.institutionInfo}>
                         <View style={styles.badges}>
-                            {selectedInstitution.category_name && (
-                                <View
-                                    style={
-                                        styles.categoryBadge
-                                    }
-                                >
-                                    <Text
-                                        style={
-                                            styles.categoryText
-                                        }
-                                    >
-                                        {
-                                            selectedInstitution.category_name
-                                        }
+                            {categoryValue && (
+                                <View style={styles.categoryBadge}>
+                                    <Text style={styles.categoryText}>
+                                        {getCategoryName(categoryValue)}
                                     </Text>
                                 </View>
                             )}
 
                             {selectedInstitution.rating != null && (
-                                <View
-                                    style={
-                                        styles.ratingBadge
-                                    }
-                                >
-                                    <Ionicons
-                                        name="star"
-                                        size={12}
-                                        color="#FFC21A"
-                                    />
-
-                                    <Text
-                                        style={
-                                            styles.ratingText
-                                        }
-                                    >
-                                        {Number(
-                                            selectedInstitution.rating
-                                        ).toFixed(1)}
+                                <View style={styles.ratingBadge}>
+                                    <Ionicons name="star" size={12} color="#FFC21A"/>
+                                    <Text style={styles.ratingText}>
+                                        {Number(selectedInstitution.rating).toFixed(1)}
                                     </Text>
                                 </View>
                             )}
                         </View>
 
-                        <Text
-                            style={
-                                styles.institutionName
-                            }
-                            numberOfLines={2}
-                        >
+                        <Text style={styles.institutionName} numberOfLines={2}>
                             {selectedInstitution.name}
                         </Text>
 
-                        <Text
-                            style={styles.address}
-                            numberOfLines={2}
-                        >
+                        <Text style={styles.address} numberOfLines={2}>
                             {selectedInstitution.address}
                         </Text>
                     </View>
                 </View>
-
 
                 {/* TABS */}
                 <View style={styles.tabs}>
                     <TouchableOpacity
                         style={[
                             styles.tab,
-                            activeTab === "info" &&
-                            styles.activeTab,
+                            activeTab === "info" && styles.activeTab,
                         ]}
-                        onPress={() =>
-                            setActiveTab("info")
-                        }
+                        onPress={() => setActiveTab("info")}
                         activeOpacity={1}
                     >
                         <Text
                             style={[
                                 styles.tabText,
-                                activeTab === "info" &&
-                                styles.activeTabText,
+                                activeTab === "info" && styles.activeTabText,
                             ]}
                         >
                             {t.info}
@@ -361,19 +267,15 @@ export default function InstitutionDetailsScreen({
                     <TouchableOpacity
                         style={[
                             styles.tab,
-                            activeTab === "services" &&
-                            styles.activeTab,
+                            activeTab === "services" && styles.activeTab,
                         ]}
-                        onPress={() =>
-                            setActiveTab("services")
-                        }
+                        onPress={() => setActiveTab("services")}
                         activeOpacity={1}
                     >
                         <Text
                             style={[
                                 styles.tabText,
-                                activeTab === "services" &&
-                                styles.activeTabText,
+                                activeTab === "services" && styles.activeTabText,
                             ]}
                         >
                             {t.services}
@@ -381,112 +283,56 @@ export default function InstitutionDetailsScreen({
                     </TouchableOpacity>
                 </View>
 
-
-                {/* TAB CONTENT */}
                 {activeTab === "info" ? (
                     <Info
-                        institution={
-                            selectedInstitution
-                        }
-                        workingHours={
-                            workingHours
-                        }
-                        loading={
-                            loadingWorkingHours
-                        }
+                        institution={selectedInstitution}
+                        workingHours={workingHours}
+                        loading={loadingWorkingHours}
                         t={t}
                     />
                 ) : (
                     <Services
-                        services={
-                            filteredServices
-                        }
+                        services={filteredServices}
                         search={search}
                         setSearch={setSearch}
-                        institution={
-                            selectedInstitution
-                        }
-                        navigation={
-                            navigation
-                        }
-                        loading={
-                            loadingServices
-                        }
+                        institution={selectedInstitution}
+                        navigation={navigation}
+                        loading={loadingServices}
                         t={t}
                     />
                 )}
 
-                <View
-                    style={styles.bottomSpace}
-                />
+                <View style={styles.bottomSpace}/>
             </ScrollView>
 
-            <BottomNavigation
-                navigation={navigation}
-            />
+            <BottomNavigation navigation={navigation}/>
         </View>
     );
 }
 
-
-function Info({
-                  institution,
-                  workingHours,
-                  loading,
-                  t,
-              }) {
+function Info({ institution, workingHours, loading, t }) {
     return (
         <View style={styles.tabContent}>
             {!!institution.description && (
-                <Text
-                    style={styles.description}
-                >
+                <Text style={styles.description}>
                     {institution.description}
                 </Text>
             )}
 
-
             {/* CONTACTS */}
             {!!institution.phone && (
-                <View
-                    style={styles.contactRow}
-                >
-                    <Ionicons
-                        name="call"
-                        size={18}
-                        color="#111111"
-                    />
-
-                    <Text
-                        style={
-                            styles.contactText
-                        }
-                    >
-                        {institution.phone}
-                    </Text>
+                <View style={styles.contactRow}>
+                    <Ionicons name="call" size={18} color="#111111"/>
+                    <Text style={styles.contactText}>{institution.phone}</Text>
                 </View>
             )}
 
             {!!institution.email && (
-                <View
-                    style={styles.contactRow}
-                >
-                    <Ionicons
-                        name="mail"
-                        size={18}
-                        color="#111111"
-                    />
-
-                    <Text
-                        style={
-                            styles.contactText
-                        }
-                    >
-                        {institution.email}
-                    </Text>
+                <View style={styles.contactRow}>
+                    <Ionicons name="mail" size={18} color="#111111"/>
+                    <Text style={styles.contactText}>{institution.email}</Text>
                 </View>
             )}
-
 
             {/* OPENING HOURS */}
             <Text style={styles.sectionTitle}>
@@ -495,103 +341,57 @@ function Info({
 
             {loading ? (
                 <Text style={styles.noServices}>
-                    Loading...
+                    {t.loading}
                 </Text>
             ) : (
-                <View
-                    style={styles.workingHours}
-                >
-                    {workingHours.map(
-                        (item) => (
-                            <View
-                                key={item.day}
-                                style={
-                                    styles.workingRow
-                                }
-                            >
-                                <Text
-                                    style={
-                                        styles.day
-                                    }
-                                >
-                                    {t[
-                                            item.day.toLowerCase()
-                                            ] ||
-                                        item.day}
-                                </Text>
+                <View style={styles.workingHours}>
+                    {workingHours.map(item => (
+                        <View
+                            key={item.day}
+                            style={styles.workingRow}
+                        >
+                            <Text style={styles.day}>
+                                {t[item.day.toLowerCase()] || item.day}
+                            </Text>
 
-                                {item.closed ? (
-                                    <>
-                                        <Text
-                                            style={
-                                                styles.closed
-                                            }
-                                        >
-                                            {t.closed}
+                            {item.closed ? (
+                                <>
+                                    <Text style={styles.closed}>
+                                        {t.closed}
+                                    </Text>
+
+                                    <Text style={styles.closed}>
+                                        {t.closed}
+                                    </Text>
+                                </>
+                            ) : (
+                                <>
+                                    <View style={styles.timeGroup}>
+                                        <Text style={styles.timeLabel}>
+                                            {t.from}
                                         </Text>
 
-                                        <Text
-                                            style={
-                                                styles.closed
-                                            }
-                                        >
-                                            {t.closed}
+                                        <Text style={styles.time}>
+                                            {item.from}
                                         </Text>
-                                    </>
-                                ) : (
-                                    <>
-                                        <View
-                                            style={
-                                                styles.timeGroup
-                                            }
-                                        >
-                                            <Text
-                                                style={
-                                                    styles.timeLabel
-                                                }
-                                            >
-                                                {t.from}
-                                            </Text>
+                                    </View>
 
-                                            <Text
-                                                style={
-                                                    styles.time
-                                                }
-                                            >
-                                                {item.from}
-                                            </Text>
-                                        </View>
+                                    <View style={styles.timeGroup}>
+                                        <Text style={styles.timeLabel}>
+                                            {t.to}
+                                        </Text>
 
-                                        <View
-                                            style={
-                                                styles.timeGroup
-                                            }
-                                        >
-                                            <Text
-                                                style={
-                                                    styles.timeLabel
-                                                }
-                                            >
-                                                {t.to}
-                                            </Text>
-
-                                            <Text
-                                                style={
-                                                    styles.time
-                                                }
-                                            >
-                                                {item.to}
-                                            </Text>
-                                        </View>
-                                    </>
-                                )}
-                            </View>
-                        )
-                    )}
+                                        <Text style={styles.time}>
+                                            {item.to}
+                                        </Text>
+                                    </View>
+                                </>
+                            )}
+                        </View>
+                    ))}
                 </View>
             )}
 
-            {/* MAP */}
             <InstitutionMap
                 institution={institution}
                 styles={styles}
@@ -599,7 +399,6 @@ function Info({
         </View>
     );
 }
-
 
 function Services({
                       services,
@@ -632,11 +431,11 @@ function Services({
             {/* SERVICES */}
             {loading ? (
                 <Text style={styles.noServices}>
-                    Loading...
+                    {t.loading}
                 </Text>
             ) : (
                 <>
-                    {services.map((service) => (
+                    {services.map(service => (
                         <View
                             key={service.id}
                             style={styles.serviceCard}
@@ -646,30 +445,19 @@ function Services({
                             </Text>
 
                             <Text style={styles.duration}>
-                                {service.standard_duration} min
+                                {service.standard_duration} {t.min}
                             </Text>
 
                             {!!service.description && (
-                                <Text
-                                    style={
-                                        styles.serviceDescription
-                                    }
-                                >
+                                <Text style={styles.serviceDescription}>
                                     {service.description}
                                 </Text>
                             )}
 
-                            {/* QUEUE INFO */}
                             <View style={styles.serviceStats}>
                                 <View style={styles.spotsBadge}>
-                                    <Text
-                                        style={
-                                            styles.serviceStatText
-                                        }
-                                    >
-                                        {service.spots}{" "}
-                                        {t.spotsRemaining ||
-                                            "Spots Remaining"}
+                                    <Text style={styles.serviceStatText}>
+                                        {service.spots} {t.spotsRemaining}
                                     </Text>
                                 </View>
 
@@ -680,13 +468,8 @@ function Services({
                                         color="#111111"
                                     />
 
-                                    <Text
-                                        style={
-                                            styles.serviceStatText
-                                        }
-                                    >
-                                        {service.queue}{" "}
-                                        {t.queue || "Queue"}
+                                    <Text style={styles.serviceStatText}>
+                                        {service.queue} {t.queue}
                                     </Text>
                                 </View>
 
@@ -709,20 +492,13 @@ function Services({
                                 style={styles.joinButton}
                                 activeOpacity={0.85}
                                 onPress={() =>
-                                    navigation.navigate(
-                                        "SelectDate",
-                                        {
-                                            service,
-                                            institution,
-                                        }
-                                    )
+                                    navigation.navigate("SelectDate", {
+                                        service,
+                                        institution,
+                                    })
                                 }
                             >
-                                <Text
-                                    style={
-                                        styles.joinButtonText
-                                    }
-                                >
+                                <Text style={styles.joinButtonText}>
                                     {t.joinQueue}
                                 </Text>
                             </TouchableOpacity>

@@ -1,83 +1,33 @@
-import {
-    useEffect,
-    useState,
-} from "react";
+import {useEffect, useState,} from "react";
 
-import {
-    getCategories,
-} from "../../api/categories/categoriesApi";
-import {
-    getInstitutions,
-} from "../../api/institutions/institutionsApi";
-import {
-    getRecentAppointments,
-} from "../../api/appointments/appointmentsApi";
-import {
-    getCurrentLocation,
-    sortInstitutionsByDistance,
-} from "../../utils/locationUtils";
+import {getCategories,} from "../../api/categories/categoriesApi";
+import {getInstitutions,} from "../../api/institutions/institutionsApi";
+import {getRecentAppointments,} from "../../api/appointments/appointmentsApi";
+import {getCurrentLocation, sortInstitutionsByDistance,} from "../../utils/locationUtils";
 
 export default function useHomeData() {
-    const [
-        categories,
-        setCategories,
-    ] = useState([]);
-
-    const [
-        institutions,
-        setInstitutions,
-    ] = useState([]);
-
-    const [
-        recentAppointments,
-        setRecentAppointments,
-    ] = useState([]);
-
-    const [
-        nearbyInstitutions,
-        setNearbyInstitutions,
-    ] = useState([]);
+    const [categories, setCategories,] = useState([]);
+    const [institutions, setInstitutions,] = useState([]);
+    const [recentAppointments, setRecentAppointments,] = useState([]);
+    const [nearbyInstitutions, setNearbyInstitutions,] = useState([]);
 
     useEffect(() => {
         const loadHomeData =
             async () => {
                 try {
-                    const [
-                        categoriesData,
-                        institutionsData,
-                        appointmentsData,
-                    ] = await Promise.all([
+                    const [categoriesData, institutionsData, appointmentsData] = await Promise.all([
                         getCategories(),
                         getInstitutions(),
                         getRecentAppointments(),
                     ]);
 
-                    setCategories(
-                        Array.isArray(
-                            categoriesData
-                        )
-                            ? categoriesData
-                            : []
-                    );
+                    setCategories(Array.isArray(categoriesData) ? categoriesData : []);
 
-                    const safeInstitutions =
-                        Array.isArray(
-                            institutionsData
-                        )
-                            ? institutionsData
-                            : [];
+                    const safeInstitutions = Array.isArray(institutionsData) ? institutionsData : [];
 
-                    setInstitutions(
-                        safeInstitutions
-                    );
+                    setInstitutions(safeInstitutions);
 
-                    setRecentAppointments(
-                        Array.isArray(
-                            appointmentsData
-                        )
-                            ? appointmentsData
-                            : []
-                    );
+                    setRecentAppointments(Array.isArray(appointmentsData) ? appointmentsData : []);
 
                     try {
                         const userLocation =
@@ -85,27 +35,18 @@ export default function useHomeData() {
 
                         if (userLocation) {
                             setNearbyInstitutions(
-                                sortInstitutionsByDistance(
-                                    safeInstitutions,
-                                    userLocation
-                                )
+                                sortInstitutionsByDistance(safeInstitutions, userLocation)
                             );
                         } else {
                             setNearbyInstitutions([]);
                         }
                     } catch (locationError) {
-                        console.log(
-                            "LOCATION ERROR:",
-                            locationError
-                        );
+                        console.log("LOCATION ERROR:", locationError);
 
                         setNearbyInstitutions([]);
                     }
                 } catch (error) {
-                    console.log(
-                        "HOME DATA ERROR:",
-                        error
-                    );
+                    console.log("HOME DATA ERROR:", error);
                 }
             };
 

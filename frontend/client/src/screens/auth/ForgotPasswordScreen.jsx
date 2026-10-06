@@ -1,14 +1,5 @@
 import React, { useState } from "react";
-import {
-    View,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    ActivityIndicator,
-    KeyboardAvoidingView,
-    Platform,
-    Image,
-} from "react-native";
+import {View, Text, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, Image,} from "react-native";
 
 import { forgotPasswordUser } from "../../api/auth/authApi";
 import { useLanguage } from "../../context/LanguageContext";
@@ -24,13 +15,12 @@ export default function ForgotPasswordScreen({ navigation }) {
 
     const handleForgotPassword = async () => {
         if (!login.trim()) {
-            showMessage(t.enterEmail, "error");
+            showMessage(t.enterEmailOrPhone, "error");
             return;
         }
 
         let normalizedLogin = login.trim();
 
-        // Якщо це телефон — приводимо до міжнародного формату
         if (!normalizedLogin.includes("@")) {
             normalizedLogin = normalizedLogin.replace(/\s/g, "");
 
@@ -42,16 +32,16 @@ export default function ForgotPasswordScreen({ navigation }) {
         try {
             setLoading(true);
 
-            await forgotPasswordUser({
-                login: normalizedLogin,
-            });
+            await forgotPasswordUser({ login: normalizedLogin });
 
             navigation.navigate("Code", {
                 login: normalizedLogin,
                 flow: "reset",
             });
+
         } catch (error) {
-            showMessage(error.message, "error");
+            console.error("FORGOT PASSWORD ERROR:", error);
+            showMessage(t.forgotPasswordError, "error");
         } finally {
             setLoading(false);
         }
@@ -67,7 +57,6 @@ export default function ForgotPasswordScreen({ navigation }) {
                 onPress={() => navigation.navigate("Language")}
             >
                 <Text style={styles.languageText}>{t.languageName}</Text>
-
                 <Image
                     source={require("../../../assets/down-arrow.png")}
                     style={styles.languageArrow}
@@ -99,20 +88,17 @@ export default function ForgotPasswordScreen({ navigation }) {
                 />
             </View>
 
-            <View style={styles.forgotPasswordSpacer} />
+            <View style={styles.forgotPasswordSpacer}/>
 
             <TouchableOpacity
                 style={styles.mainButton}
                 onPress={handleForgotPassword}
                 disabled={loading}
             >
-                {loading ? (
-                    <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                    <Text style={styles.mainButtonText}>
-                        {t.confirmButton || t.confirm}
-                    </Text>
-                )}
+                {loading
+                    ? <ActivityIndicator color="#FFFFFF"/>
+                    : <Text style={styles.mainButtonText}>{t.confirmButton}</Text>
+                }
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -120,13 +106,8 @@ export default function ForgotPasswordScreen({ navigation }) {
                 activeOpacity={1}
                 onPress={() => navigation.navigate("Login")}
             >
-                <Text style={styles.bottomText}>
-                    {t.rememberPassword}{" "}
-                </Text>
-
-                <Text style={styles.linkText}>
-                    {t.loginLink}
-                </Text>
+                <Text style={styles.bottomText}>{t.rememberPassword}{" "}</Text>
+                <Text style={styles.linkText}>{t.loginLink}</Text>
             </TouchableOpacity>
         </KeyboardAvoidingView>
     );

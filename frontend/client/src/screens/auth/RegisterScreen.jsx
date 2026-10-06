@@ -1,14 +1,5 @@
 import React, { useState } from "react";
-import {
-    View,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    ActivityIndicator,
-    KeyboardAvoidingView,
-    Platform,
-    Image,
-} from "react-native";
+import {View, Text, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, Image,} from "react-native";
 
 import { useLanguage } from "../../context/LanguageContext";
 import { useMessage } from "../../context/MessageContext";
@@ -46,10 +37,7 @@ export default function RegisterScreen({ navigation }) {
             body.email = loginValue.trim();
         } else {
             const phone = loginValue.trim().replace(/\s/g, "");
-
-            body.phone = phone.startsWith("+")
-                ? phone
-                : `+48${phone}`;
+            body.phone = phone.startsWith("+") ? phone : `+48${phone}`;
         }
 
         try {
@@ -57,16 +45,16 @@ export default function RegisterScreen({ navigation }) {
 
             await registerUser(body);
 
-            const login = method === "email"
-                ? body.email
-                : body.phone;
+            const login = method === "email" ? body.email : body.phone;
 
             navigation.navigate("Code", {
                 login,
                 flow: "register",
             });
+
         } catch (error) {
-            showMessage(error.message, "error");
+            console.error("REGISTRATION ERROR:", error);
+            showMessage(t.registrationError, "error");
         } finally {
             setLoading(false);
         }
@@ -82,10 +70,7 @@ export default function RegisterScreen({ navigation }) {
                 onPress={() => navigation.navigate("Language")}
             >
                 <Text style={styles.languageText}>{t.languageName}</Text>
-                <Image
-                    source={require("../../../assets/down-arrow.png")}
-                    style={styles.languageArrow}
-                />
+                <Image source={require("../../../assets/down-arrow.png")} style={styles.languageArrow}/>
             </TouchableOpacity>
 
             <Text style={[styles.logo, styles.logoMargin]}>
@@ -142,10 +127,7 @@ export default function RegisterScreen({ navigation }) {
             </View>
 
             <View style={styles.inputWrapper}>
-                <Image
-                    source={require("../../../assets/padlock.png")}
-                    style={styles.inputIcon}
-                />
+                <Image source={require("../../../assets/padlock.png")} style={styles.inputIcon}/>
 
                 <TextInput
                     style={styles.input}
@@ -157,21 +139,11 @@ export default function RegisterScreen({ navigation }) {
                 />
 
                 <TouchableOpacity onPress={() => setHidePassword(!hidePassword)}>
-                    <Image
-                        source={
-                            hidePassword
-                                ? require("../../../assets/hiddedpass.png")
-                                : require("../../../assets/seepass.png")
-                        }
+                    <Image source={hidePassword ? require("../../../assets/hiddedpass.png") : require("../../../assets/seepass.png")}
                         style={styles.eyeIcon}
                     />
                 </TouchableOpacity>
             </View>
-
-            {/*alert requirements pass*/}
-            {/*<Text style={styles.passwordRequirements}>*/}
-            {/*    {t.passwordRequirements}*/}
-            {/*</Text>*/}
 
             <TouchableOpacity
                 style={styles.termsRow}
@@ -184,7 +156,8 @@ export default function RegisterScreen({ navigation }) {
                 <Text style={styles.termsText}>
                     {t.termsTextStart}{" "}
                     <Text style={styles.semiBold}>{t.termsConditions}</Text>{" "}
-                    {t.and} <Text style={styles.semiBold}>{t.privacyPolicy}</Text>{" "}
+                    {t.and}{" "}
+                    <Text style={styles.semiBold}>{t.privacyPolicy}</Text>{" "}
                     {t.termsTextEnd} <Text style={styles.required}>*</Text>
                 </Text>
             </TouchableOpacity>
@@ -194,11 +167,10 @@ export default function RegisterScreen({ navigation }) {
                 onPress={handleRegister}
                 disabled={loading}
             >
-                {loading ? (
-                    <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                    <Text style={styles.mainButtonText}>{t.registerButton}</Text>
-                )}
+                {loading
+                    ? <ActivityIndicator color="#FFFFFF"/>
+                    : <Text style={styles.mainButtonText}>{t.registerButton}</Text>
+                }
             </TouchableOpacity>
 
             <TouchableOpacity

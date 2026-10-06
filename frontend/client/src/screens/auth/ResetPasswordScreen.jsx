@@ -1,14 +1,5 @@
 import React, { useRef, useState } from "react";
-import {
-    View,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    ActivityIndicator,
-    KeyboardAvoidingView,
-    Platform,
-    Image,
-} from "react-native";
+import {View, Text, TextInput, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, Image,} from "react-native";
 
 import { resetPasswordUser } from "../../api/auth/authApi";
 import { useLanguage } from "../../context/LanguageContext";
@@ -23,12 +14,10 @@ export default function ResetPasswordScreen({ navigation, route }) {
     const [confirmPassword, setConfirmPassword] = useState("");
     const [hidePassword, setHidePassword] = useState(true);
     const [hideConfirmPassword, setHideConfirmPassword] = useState(true);
-
     const [loading, setLoading] = useState(false);
 
     const passwordInputRef = useRef(null);
     const confirmPasswordInputRef = useRef(null);
-
 
     const { t } = useLanguage();
     const { showMessage } = useMessage();
@@ -45,7 +34,7 @@ export default function ResetPasswordScreen({ navigation, route }) {
         }
 
         if (!login || !verificationCode) {
-            showMessage("Password reset session is invalid", "error");
+            showMessage(t.passwordResetSessionInvalid, "error");
             return;
         }
 
@@ -66,8 +55,10 @@ export default function ResetPasswordScreen({ navigation, route }) {
                     routes: [{ name: "Login" }],
                 });
             }, 1200);
+
         } catch (error) {
-            showMessage(error.message, "error");
+            console.error("RESET PASSWORD ERROR:", error);
+            showMessage(t.resetPasswordError, "error");
         } finally {
             setLoading(false);
         }
@@ -83,9 +74,7 @@ export default function ResetPasswordScreen({ navigation, route }) {
                 onPress={() => navigation.navigate("Language")}
             >
                 <Text style={styles.languageText}>{t.languageName}</Text>
-                <Image
-                    source={require("../../../assets/down-arrow.png")}
-                    style={styles.languageArrow}
+                <Image source={require("../../../assets/down-arrow.png")} style={styles.languageArrow}
                 />
             </TouchableOpacity>
 
@@ -121,11 +110,7 @@ export default function ResetPasswordScreen({ navigation, route }) {
 
                 <TouchableOpacity onPress={() => setHidePassword(!hidePassword)}>
                     <Image
-                        source={
-                            hidePassword
-                                ? require("../../../assets/hiddedpass.png")
-                                : require("../../../assets/seepass.png")
-                        }
+                        source={hidePassword ? require("../../../assets/hiddedpass.png") : require("../../../assets/seepass.png")}
                         style={styles.eyeIcon}
                     />
                 </TouchableOpacity>
@@ -136,10 +121,7 @@ export default function ResetPasswordScreen({ navigation, route }) {
                 style={styles.inputWrapper}
                 onPress={() => confirmPasswordInputRef.current?.focus()}
             >
-                <Image
-                    source={require("../../../assets/padlock.png")}
-                    style={styles.inputIcon}
-                />
+                <Image source={require("../../../assets/padlock.png")} style={styles.inputIcon}/>
 
                 <TextInput
                     ref={confirmPasswordInputRef}
@@ -156,28 +138,23 @@ export default function ResetPasswordScreen({ navigation, route }) {
                     onPress={() => setHideConfirmPassword(!hideConfirmPassword)}
                 >
                     <Image
-                        source={
-                            hideConfirmPassword
-                                ? require("../../../assets/hiddedpass.png")
-                                : require("../../../assets/seepass.png")
-                        }
+                        source={hideConfirmPassword ? require("../../../assets/hiddedpass.png") : require("../../../assets/seepass.png")}
                         style={styles.eyeIcon}
                     />
                 </TouchableOpacity>
             </TouchableOpacity>
 
-            <View style={styles.resetPasswordSpacer} />
+            <View style={styles.resetPasswordSpacer}/>
 
             <TouchableOpacity
                 style={styles.mainButton}
                 onPress={handleResetPassword}
                 disabled={loading}
             >
-                {loading ? (
-                    <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                    <Text style={styles.mainButtonText}>{t.confirmButton}</Text>
-                )}
+                {loading
+                    ? <ActivityIndicator color="#FFFFFF"/>
+                    : <Text style={styles.mainButtonText}>{t.confirmButton}</Text>
+                }
             </TouchableOpacity>
 
             <TouchableOpacity

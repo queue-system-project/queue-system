@@ -1,9 +1,5 @@
 import React from "react";
-import {
-    Text,
-    TouchableOpacity,
-    View,
-} from "react-native";
+import {Text, TouchableOpacity, View,} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { helpSupportStyles as styles } from "../../styles/profile/helpSupportStyle";
@@ -20,11 +16,7 @@ export default function HelpSupportScreen({ navigation }) {
                     onPress={() => navigation.goBack()}
                     activeOpacity={0.8}
                 >
-                    <Ionicons
-                        name="chevron-back"
-                        size={28}
-                        color="#5657C4"
-                    />
+                    <Ionicons name="chevron-back" size={28} color="#5657C4"/>
                 </TouchableOpacity>
 
                 <Text style={styles.title}>
@@ -43,11 +35,7 @@ export default function HelpSupportScreen({ navigation }) {
                     </Text>
 
                     <TouchableOpacity activeOpacity={0.7}>
-                        <Ionicons
-                            name="copy-outline"
-                            size={18}
-                            color="#5657C4"
-                        />
+                        <Ionicons name="copy-outline" size={18} color="#5657C4"/>
                     </TouchableOpacity>
                 </View>
             </View>

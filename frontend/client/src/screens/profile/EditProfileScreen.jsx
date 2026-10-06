@@ -1,27 +1,14 @@
 import React, { useEffect, useState } from "react";
-import {
-    ActivityIndicator,
-    Image,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
-} from "react-native";
+import { ActivityIndicator, Image, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import { editProfileStyles as styles } from "../../styles/profile/editProfileStyle";
 import { useLanguage } from "../../context/LanguageContext";
 import { useMessage } from "../../context/MessageContext";
 
-import {
-    clearAuthData,
-    getUserId,
-} from "../../api/auth/tokenStorage";
-
+import { clearAuthData, getUserId } from "../../api/auth/tokenStorage";
 import { authorizedRequest } from "../../api/authorizedRequest";
 import { getProfile } from "../../api/profile/profileApi";
-
 
 export default function EditProfileScreen({ navigation }) {
     const { t } = useLanguage();
@@ -33,11 +20,6 @@ export default function EditProfileScreen({ navigation }) {
 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-
-
-    /* =========================
-       LOAD PROFILE
-    ========================= */
 
     useEffect(() => {
         let mounted = true;
@@ -53,50 +35,28 @@ export default function EditProfileScreen({ navigation }) {
 
                     navigation.reset({
                         index: 0,
-                        routes: [
-                            {
-                                name: "Login",
-                            },
-                        ],
+                        routes: [{ name: "Login" }],
                     });
 
                     return;
                 }
 
                 const user = await getProfile(userId);
+                if (!mounted) return;
 
-                if (!mounted) {
-                    return;
-                }
+                setFirstName(user?.first_name || "");
+                setLastName(user?.last_name || "");
+                setProfileImage(user?.profile_image || null);
 
-                setFirstName(
-                    user?.first_name || ""
-                );
-
-                setLastName(
-                    user?.last_name || ""
-                );
-
-                setProfileImage(
-                    user?.profile_image || null
-                );
             } catch (error) {
-                console.error(
-                    "LOAD PROFILE ERROR:",
-                    error
-                );
+                console.error("LOAD PROFILE ERROR:", error);
 
                 if (mounted) {
-                    showMessage(
-                        error?.message ||
-                        "Could not load profile",
-                        "error"
-                    );
+                    showMessage(t.couldNotLoadProfile, "error");
                 }
+
             } finally {
-                if (mounted) {
-                    setLoading(false);
-                }
+                if (mounted) setLoading(false);
             }
         };
 
@@ -105,33 +65,16 @@ export default function EditProfileScreen({ navigation }) {
         return () => {
             mounted = false;
         };
-    }, [navigation, showMessage]);
-
-
-    /* =========================
-       SAVE PROFILE
-    ========================= */
+    }, [navigation]);
 
     const handleSave = async () => {
-        if (saving || loading) {
-            return;
-        }
+        if (saving || loading) return;
 
-        const normalizedFirstName =
-            firstName.trim();
+        const normalizedFirstName = firstName.trim();
+        const normalizedLastName = lastName.trim();
 
-        const normalizedLastName =
-            lastName.trim();
-
-        if (
-            !normalizedFirstName ||
-            !normalizedLastName
-        ) {
-            showMessage(
-                "First name and last name are required",
-                "error"
-            );
-
+        if (!normalizedFirstName || !normalizedLastName) {
+            showMessage(t.firstAndLastNameRequired, "error");
             return;
         }
 
@@ -141,55 +84,43 @@ export default function EditProfileScreen({ navigation }) {
             const userId = await getUserId();
 
             if (!userId) {
-                throw new Error(
-                    "Authentication required or session expired"
-                );
+                showMessage(t.sessionExpired, "error");
+
+                await clearAuthData();
+
+                navigation.reset({
+                    index: 0,
+                    routes: [{ name: "Login" }],
+                });
+
+                return;
             }
 
-            const response =
-                await authorizedRequest(
-                    "/api/users/complete-profile",
-                    "PUT",
-                    {
-                        user_id: userId,
-                        first_name:
-                        normalizedFirstName,
-                        last_name:
-                        normalizedLastName,
-                    }
-                );
-
-            showMessage(
-                response?.message ||
-                "Profile updated successfully",
-                "success"
+            await authorizedRequest(
+                "/api/users/complete-profile",
+                "PUT",
+                {
+                    user_id: userId,
+                    first_name: normalizedFirstName,
+                    last_name: normalizedLastName,
+                }
             );
 
+            showMessage(t.profileUpdatedSuccessfully, "success");
             navigation.goBack();
-        } catch (error) {
-            console.error(
-                "UPDATE PROFILE ERROR:",
-                error
-            );
 
-            showMessage(
-                error?.message ||
-                "Could not update profile",
-                "error"
-            );
+        } catch (error) {
+            console.error("UPDATE PROFILE ERROR:", error);
+            showMessage(t.couldNotUpdateProfile, "error");
+
         } finally {
             setSaving(false);
         }
     };
 
-
     const handleChangePhoto = () => {
-        showMessage(
-            "Profile photo editing is not available yet",
-            "error"
-        );
+        showMessage(t.photoEditingUnavailable, "error");
     };
-
 
     return (
         <View style={styles.container}>
@@ -199,64 +130,41 @@ export default function EditProfileScreen({ navigation }) {
                 keyboardShouldPersistTaps="handled"
             >
                 {/* HEADER */}
-
                 <View style={styles.header}>
                     <TouchableOpacity
                         style={styles.backButton}
-                        onPress={() =>
-                            navigation.goBack()
-                        }
+                        onPress={() => navigation.goBack()}
                         activeOpacity={0.8}
                         disabled={saving}
                     >
-                        <Ionicons
-                            name="chevron-back"
-                            size={28}
-                            color="#5657C4"
-                        />
+                        <Ionicons name="chevron-back" size={28} color="#5657C4"/>
                     </TouchableOpacity>
 
                     <TouchableOpacity
                         style={[
                             styles.saveButton,
-                            (saving || loading) && {
-                                opacity: 0.5,
-                            },
+                            (saving || loading) && { opacity: 0.5 },
                         ]}
                         activeOpacity={0.8}
                         onPress={handleSave}
                         disabled={saving || loading}
                     >
                         {saving ? (
-                            <ActivityIndicator
-                                size="small"
-                                color="#5657C4"
-                            />
+                            <ActivityIndicator size="small" color="#5657C4"/>
                         ) : (
-                            <Ionicons
-                                name="checkmark"
-                                size={30}
-                                color="#5657C4"
-                            />
+                            <Ionicons name="checkmark" size={30} color="#5657C4"/>
                         )}
                     </TouchableOpacity>
                 </View>
 
-
                 {/* AVATAR */}
-
                 <View style={styles.avatarSection}>
                     <View style={styles.avatar}>
                         {loading ? (
-                            <ActivityIndicator
-                                size="small"
-                                color="#5657C4"
-                            />
+                            <ActivityIndicator size="small" color="#5657C4"/>
                         ) : profileImage ? (
                             <Image
-                                source={{
-                                    uri: profileImage,
-                                }}
+                                source={{ uri: profileImage }}
                                 style={{
                                     width: "100%",
                                     height: "100%",
@@ -265,38 +173,24 @@ export default function EditProfileScreen({ navigation }) {
                                 resizeMode="cover"
                             />
                         ) : (
-                            <Ionicons
-                                name="person-outline"
-                                size={62}
-                                color="#111111"
-                            />
+                            <Ionicons name="person-outline" size={62} color="#111111"/>
                         )}
 
                         <TouchableOpacity
-                            style={
-                                styles.changePhotoButton
-                            }
+                            style={styles.changePhotoButton}
                             activeOpacity={0.8}
                             onPress={handleChangePhoto}
                             disabled={loading || saving}
                         >
-                            <Ionicons
-                                name="person-add"
-                                size={15}
-                                color="#111111"
-                            />
+                            <Ionicons name="person-add" size={15} color="#111111"/>
                         </TouchableOpacity>
                     </View>
                 </View>
 
-
                 {/* FORM */}
-
                 <View style={styles.form}>
                     <View style={styles.field}>
-                        <Text style={styles.label}>
-                            {t.firstName}
-                        </Text>
+                        <Text style={styles.label}>{t.firstName}</Text>
 
                         <TextInput
                             value={firstName}
@@ -310,9 +204,7 @@ export default function EditProfileScreen({ navigation }) {
                     </View>
 
                     <View style={styles.field}>
-                        <Text style={styles.label}>
-                            {t.lastName}
-                        </Text>
+                        <Text style={styles.label}>{t.lastName}</Text>
 
                         <TextInput
                             value={lastName}

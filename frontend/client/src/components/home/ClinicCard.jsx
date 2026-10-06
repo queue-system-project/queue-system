@@ -1,34 +1,17 @@
 import React from "react";
-import {
-    Image,
-    Text,
-    TouchableOpacity,
-    View,
-} from "react-native";
+import { Image, Text, TouchableOpacity, View } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { homeStyles as styles } from "../../styles/home/homeStyles";
+import { useLanguage } from "../../context/LanguageContext";
 
-export default function ClinicCard({
-                                       clinic,
-                                       appointment = null,
-                                       onPress,
-                                   }) {
-    const CardWrapper = onPress
-        ? TouchableOpacity
-        : View;
+export default function ClinicCard({ clinic, appointment = null, onPress }) {
+    const { t } = useLanguage();
 
-    const image =
-        clinic.photo_url
-        || clinic.image;
-
-    const category =
-        clinic.category_name
-        || clinic.category;
-
-    const hasRealImage =
-        image
-        && !image.includes("example.com");
+    const CardWrapper = onPress ? TouchableOpacity : View;
+    const image = clinic.photo_url || clinic.image;
+    const category = clinic.category_name || clinic.category;
+    const hasRealImage = image && !image.includes("example.com");
 
     return (
         <CardWrapper
@@ -43,9 +26,7 @@ export default function ClinicCard({
                         style={styles.clinicImage}
                     />
                 ) : (
-                    <View
-                        style={styles.clinicImagePlaceholder}
-                    >
+                    <View style={styles.clinicImagePlaceholder}>
                         <MaterialCommunityIcons
                             name="office-building"
                             size={30}
@@ -58,36 +39,26 @@ export default function ClinicCard({
                     <View style={styles.tagsRow}>
                         <View style={styles.categoryTag}>
                             <Text style={styles.categoryTagText}>
-                                {category || "Institution"}
+                                {category || t.institution}
                             </Text>
                         </View>
 
                         {clinic.rating != null && (
                             <View style={styles.ratingTag}>
-                                <Text style={styles.star}>
-                                    ★
-                                </Text>
+                                <Text style={styles.star}>★</Text>
 
                                 <Text style={styles.ratingText}>
-                                    {Number(
-                                        clinic.rating
-                                    ).toFixed(1)}
+                                    {Number(clinic.rating).toFixed(1)}
                                 </Text>
                             </View>
                         )}
                     </View>
 
-                    <Text
-                        style={styles.clinicName}
-                        numberOfLines={1}
-                    >
+                    <Text style={styles.clinicName} numberOfLines={1}>
                         {clinic.name}
                     </Text>
 
-                    <Text
-                        style={styles.clinicAddress}
-                        numberOfLines={1}
-                    >
+                    <Text style={styles.clinicAddress} numberOfLines={1}>
                         {clinic.address}
                     </Text>
                 </View>
@@ -96,10 +67,7 @@ export default function ClinicCard({
             {appointment && (
                 <View style={styles.appointmentInfo}>
                     <View>
-                        <Text
-                            style={styles.appointmentTitle}
-                            numberOfLines={2}
-                        >
+                        <Text style={styles.appointmentTitle} numberOfLines={2}>
                             {appointment.service}
                         </Text>
 

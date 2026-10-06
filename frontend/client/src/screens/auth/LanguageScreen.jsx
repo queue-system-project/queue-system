@@ -1,13 +1,13 @@
 import React from "react";
-import {View, Text, TouchableOpacity, Image} from "react-native";
+import { View, Text, TouchableOpacity, Image } from "react-native";
 
 import { useLanguage } from "../../context/LanguageContext";
 import { authStyles as styles } from "../../styles/auth/authStyles";
 
 export default function LanguageScreen({ navigation }) {
-    const { language, setLanguage } = useLanguage();
+    const { language, setLanguage, t } = useLanguage();
 
-    const handleSelectLanguage = (selectedLanguage) => {
+    const handleSelectLanguage = selectedLanguage => {
         setLanguage(selectedLanguage);
         navigation.goBack();
     };
@@ -19,15 +19,14 @@ export default function LanguageScreen({ navigation }) {
                     style={styles.languageBackButton}
                     onPress={() => navigation.goBack()}
                 >
-                    <Image
-                        source={require("../../../assets/back.png")}
-                        style={styles.languageBackIcon}
-                    />
+                    <Image source={require("../../../assets/back.png")} style={styles.languageBackIcon}/>
                 </TouchableOpacity>
 
-                <Text style={styles.languageScreenTitle}>Language</Text>
+                <Text style={styles.languageScreenTitle}>
+                    {t.languageTitle}
+                </Text>
 
-                <View style={styles.languageHeaderSpacer} />
+                <View style={styles.languageHeaderSpacer}/>
             </View>
 
             <View style={styles.languageList}>
@@ -47,7 +46,7 @@ export default function LanguageScreen({ navigation }) {
                             language === "en" && styles.languageListTextActive,
                         ]}
                     >
-                        English
+                        {t.englishLanguage}
                     </Text>
                 </TouchableOpacity>
 
@@ -67,7 +66,7 @@ export default function LanguageScreen({ navigation }) {
                             language === "pl" && styles.languageListTextActive,
                         ]}
                     >
-                        Polish
+                        {t.polishLanguage}
                     </Text>
                 </TouchableOpacity>
             </View>

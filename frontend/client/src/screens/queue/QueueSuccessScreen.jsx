@@ -1,10 +1,5 @@
 import React from "react";
-import {
-    ScrollView,
-    Text,
-    TouchableOpacity,
-    View,
-} from "react-native";
+import {ScrollView, Text, TouchableOpacity, View} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 import BottomNavigation from "../../components/BottomNavigation";
@@ -32,15 +27,9 @@ export default function QueueSuccessScreen({ navigation }) {
                     <TouchableOpacity
                         style={styles.notificationButton}
                         activeOpacity={0.8}
-                        onPress={() =>
-                            navigation.navigate("Notifications")
-                        }
+                        onPress={() => navigation.navigate("Notifications")}
                     >
-                        <Ionicons
-                            name="notifications"
-                            size={27}
-                            color="#111111"
-                        />
+                        <Ionicons name="notifications" size={27} color="#111111"/>
                     </TouchableOpacity>
                 </View>
 
@@ -50,11 +39,7 @@ export default function QueueSuccessScreen({ navigation }) {
                         <View style={styles.circleMiddle}>
                             <View style={styles.circleInner}>
                                 <View style={styles.successCircle}>
-                                    <Ionicons
-                                        name="checkmark"
-                                        size={28}
-                                        color="#FFFFFF"
-                                    />
+                                    <Ionicons name="checkmark" size={28} color="#FFFFFF"/>
                                 </View>
                             </View>
                         </View>
@@ -76,9 +61,7 @@ export default function QueueSuccessScreen({ navigation }) {
                     <TouchableOpacity
                         style={styles.primaryButton}
                         activeOpacity={0.85}
-                        onPress={() =>
-                            navigation.navigate("Appointments")
-                        }
+                        onPress={() => navigation.navigate("Appointments")}
                     >
                         <Text style={styles.primaryButtonText}>
                             {t.viewAppointments}
@@ -91,10 +74,7 @@ export default function QueueSuccessScreen({ navigation }) {
                 </View>
             </ScrollView>
 
-            <BottomNavigation
-                navigation={navigation}
-                active="appointments"
-            />
+            <BottomNavigation navigation={navigation} active="appointments"/>
         </View>
     );
 }
