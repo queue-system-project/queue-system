@@ -5,8 +5,13 @@ from sqlalchemy.exc import IntegrityError
 from uuid import UUID
 from app.schemas.users import UserResponse
 from app.database.connection import SessionLocal
-from app.models.users import User
 from app.core.access import require_self
+from app.models.users import User
+from app.schemas.users import (
+    UserResponse,
+    ChangePasswordRequest,
+    ChangePasswordResponse,
+)
 from app.schemas.users import (
     RegisterRequest,
     RegisterResponse,
@@ -487,4 +492,37 @@ async def delete_account(
 
     return {
         "message": "Account deleted successfully"
+    }
+
+@users_router.put(
+    "/me/password",
+    response_model=ChangePasswordResponse,
+)
+async def change_password(
+    data: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if not verify_password(
+        data.current_password,
+        current_user.password_hash,
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Current password is incorrect",
+        )
+
+    if data.current_password == data.new_password:
+        raise HTTPException(
+            status_code=400,
+            detail="New password must be different from current password",
+        )
+
+    current_user.password_hash = hash_password(data.new_password)
+
+    await db.commit()
+    await db.refresh(current_user)
+
+    return {
+        "message": "Password changed successfully",
     }

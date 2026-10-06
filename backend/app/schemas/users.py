@@ -3,6 +3,7 @@ from typing import Literal
 from pydantic import field_validator
 from pydantic import BaseModel, EmailStr, Field
 from uuid import UUID
+from pydantic import BaseModel
 
 class RegisterRequest(BaseModel):
     email: Optional[EmailStr] = None
@@ -117,3 +118,10 @@ class UserUpdateResponse(BaseModel):
 
 class RefreshTokenRequest(BaseModel):
  refresh_token: str = Field(min_length=32, max_length=512)
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+class ChangePasswordResponse(BaseModel):
+    message: str

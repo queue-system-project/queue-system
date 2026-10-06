@@ -32,8 +32,31 @@ class CreateInstitutionReviewRequest(BaseModel):
     rating: int = Field(ge=1, le=5)
 
 
-@router.get("/categories", include_in_schema=False)
+@router.get("/categories")
 @router.get("/institution-categories")
+async def get_categories(
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(InstitutionCategory)
+        .order_by(InstitutionCategory.name)
+    )
+
+    categories = result.scalars().all()
+
+    return [
+        {
+            "id": category.id,
+            "name": category.name,
+            "key": category.key,
+            "logo_url": category.logo_url,
+        }
+        for category in categories
+    ]
+
+
+@router.get("/categories/{category_id}")
+@router.get("/institution-categories/{category_id}")
 async def get_category(
     category_id: UUID,
     db: AsyncSession = Depends(get_db),
