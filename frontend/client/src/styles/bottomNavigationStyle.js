@@ -38,6 +38,10 @@ export const bottomNavigationStyles = StyleSheet.create({
         justifyContent: "center",
     },
 
+    navItemAdmin: {
+        width: "20%",
+    },
+
     navText: {
         marginTop: 5,
 

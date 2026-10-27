@@ -14,6 +14,7 @@ import { profileTranslations } from "../translations/profileTranslations";
 import { languageTranslations } from "../translations/languageTranslations";
 import { helpTranslations } from "../translations/helpTranslations";
 import { legalTranslations } from "../translations/legalTranslations";
+import { adminTranslations } from "../translations/adminTranslations";
 
 const LanguageContext = createContext();
 
@@ -73,6 +74,7 @@ export function LanguageProvider({ children }) {
         ...languageTranslations[language],
         ...helpTranslations[language],
         ...legalTranslations[language],
+        ...adminTranslations[language],
     };
 
     return (

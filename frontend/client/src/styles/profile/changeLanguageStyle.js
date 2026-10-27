@@ -36,16 +36,15 @@ export const changeLanguageStyles = StyleSheet.create({
         flex: 1,
 
         paddingHorizontal: 23,
-        paddingTop: 55,
         paddingBottom: 35,
-
-        justifyContent: "space-between",
     },
 
     languages: {
+        flex: 1,
         flexDirection: "row",
+        alignItems: "center",
         justifyContent: "center",
-        gap: 70,
+        gap: 60,
     },
 
     languageOption: {
@@ -53,40 +52,20 @@ export const changeLanguageStyles = StyleSheet.create({
     },
 
     flagWrapper: {
-        width: 100,
-        height: 100,
+        width: 120,
+        height: 120,
 
-        borderRadius: 50,
+        borderRadius: 60,
 
-        borderWidth: 1,
-        borderColor: "#E1E1E1",
+        borderWidth: 1.5,
+        borderColor: "transparent",
 
         alignItems: "center",
         justifyContent: "center",
-
-        backgroundColor: "#FFFFFF",
     },
 
     flagWrapperSelected: {
-        borderWidth: 2,
         borderColor: "#5657C4",
-    },
-
-    flag: {
-        fontSize: 60,
-    },
-
-    languageName: {
-        marginTop: 10,
-
-        fontSize: 12,
-        color: "#555555",
-        fontFamily: "Montserrat-Regular",
-    },
-
-    languageNameSelected: {
-        color: "#5657C4",
-        fontFamily: "Montserrat-Medium",
     },
 
     confirmButton: {

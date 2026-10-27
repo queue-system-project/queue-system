@@ -6,36 +6,11 @@ import BottomNavigation from "../../components/BottomNavigation";
 import { institutionDetailsStyles as styles } from "../../styles/institution/institutionDetailsStyle";
 import { useLanguage } from "../../context/LanguageContext";
 import InstitutionMap from "../../components/InstitutionMap/InstitutionMap";
+import { buildWorkingHours } from "../../utils/workingHours";
 import {
     getInstitutionServices,
     getInstitutionWorkingHours,
 } from "../../api/institutions/institutionsApi";
-
-const DAYS = [
-    "Monday", "Tuesday", "Wednesday", "Thursday",
-    "Friday", "Saturday", "Sunday",
-];
-
-function buildWorkingHours(workingHours) {
-    const hoursByDay = new Map(
-        workingHours.map(item => [item.day_of_week, item])
-    );
-
-    return DAYS.map((day, index) => {
-        const workingHour = hoursByDay.get(index);
-
-        if (!workingHour) {
-            return { day, closed: true };
-        }
-
-        return {
-            day,
-            from: workingHour.start_time,
-            to: workingHour.end_time,
-            closed: false,
-        };
-    });
-}
 
 export default function InstitutionDetailsScreen({ navigation, route }) {
     const { t } = useLanguage();

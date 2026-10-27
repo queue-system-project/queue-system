@@ -6,6 +6,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
+import CircleFlag from "../../components/CircleFlag";
 import { changeLanguageStyles as styles } from "../../styles/profile/changeLanguageStyle";
 import { useLanguage } from "../../context/LanguageContext";
 
@@ -13,12 +14,10 @@ const languages = [
     {
         id: "en",
         nameKey: "english",
-        flag: "🇬🇧",
     },
     {
         id: "pl",
         nameKey: "polish",
-        flag: "🇵🇱",
     },
 ];
 
@@ -68,6 +67,7 @@ export default function ChangeLanguageScreen({ navigation }) {
                                 key={item.id}
                                 style={styles.languageOption}
                                 activeOpacity={0.8}
+                                accessibilityLabel={t[item.nameKey]}
                                 onPress={() =>
                                     setSelectedLanguage(item.id)
                                 }
@@ -79,20 +79,8 @@ export default function ChangeLanguageScreen({ navigation }) {
                                         styles.flagWrapperSelected,
                                     ]}
                                 >
-                                    <Text style={styles.flag}>
-                                        {item.flag}
-                                    </Text>
+                                    <CircleFlag code={item.id}/>
                                 </View>
-
-                                <Text
-                                    style={[
-                                        styles.languageName,
-                                        selected &&
-                                        styles.languageNameSelected,
-                                    ]}
-                                >
-                                    {t[item.nameKey]}
-                                </Text>
                             </TouchableOpacity>
                         );
                     })}

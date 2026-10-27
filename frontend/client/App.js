@@ -13,6 +13,20 @@ import ForgotPasswordScreen from "./src/screens/auth/ForgotPasswordScreen";
 import LanguageScreen from "./src/screens/auth/LanguageScreen";
 import RoleSelectionScreen from "./src/screens/auth/RoleSelectionScreen";
 import HomeScreen from "./src/screens/home/HomeScreen";
+import AdminHomeScreen from "./src/screens/admin/AdminHomeScreen";
+import AdminInstitutionScreen from "./src/screens/admin/AdminInstitutionScreen";
+import AdminQueuesScreen from "./src/screens/admin/AdminQueuesScreen";
+import AdminEmployeesScreen from "./src/screens/admin/AdminEmployeesScreen";
+import AdminSettingsScreen from "./src/screens/admin/AdminSettingsScreen";
+import AdminInstitutionDetailsScreen from "./src/screens/admin/AdminInstitutionDetailsScreen";
+import AdminQueueDetailsScreen from "./src/screens/admin/AdminQueueDetailsScreen";
+import AdminEmployeeDetailsScreen from "./src/screens/admin/AdminEmployeeDetailsScreen";
+import AdminOffersScreen from "./src/screens/admin/AdminOffersScreen";
+import AdminHolidayScreen from "./src/screens/admin/AdminHolidayScreen";
+import AdminServiceDetailsScreen from "./src/screens/admin/AdminServiceDetailsScreen";
+import AdminAppointmentsScreen from "./src/screens/admin/AdminAppointmentsScreen";
+import AdminAppointmentDetailsScreen from "./src/screens/admin/AdminAppointmentDetailsScreen";
+import AdminEmployeeStatisticScreen from "./src/screens/admin/AdminEmployeeStatisticScreen";
 import SeeAllScreen from "./src/screens/home/SeeAllScreen";
 import SearchScreen from "./src/screens/search/SearchScreen";
 import AppointmentsScreen from "./src/screens/appointments/AppointmentsScreen";
@@ -82,7 +96,24 @@ function AppNavigator() {
                 <Stack.Screen name="Language" component={LanguageScreen} />
                 <Stack.Screen name="CompleteProfile" component={CompleteProfileScreen} />
 
-                <Stack.Screen name="Home" component={HomeScreen} options={{ animation: "none" }}/>
+                <Stack.Screen
+                    name="Home"
+                    component={user?.role === "admin" ? AdminHomeScreen : HomeScreen}
+                    options={{ animation: "none" }}
+                />
+                <Stack.Screen name="AdminInstitution" component={AdminInstitutionScreen} options={{ animation: "none" }}/>
+                <Stack.Screen name="AdminQueues" component={AdminQueuesScreen} options={{ animation: "none" }}/>
+                <Stack.Screen name="AdminEmployees" component={AdminEmployeesScreen} options={{ animation: "none" }}/>
+                <Stack.Screen name="AdminSettings" component={AdminSettingsScreen} options={{ animation: "none" }}/>
+                <Stack.Screen name="AdminInstitutionDetails" component={AdminInstitutionDetailsScreen}/>
+                <Stack.Screen name="AdminQueueDetails" component={AdminQueueDetailsScreen}/>
+                <Stack.Screen name="AdminEmployeeDetails" component={AdminEmployeeDetailsScreen}/>
+                <Stack.Screen name="AdminOffers" component={AdminOffersScreen}/>
+                <Stack.Screen name="AdminHoliday" component={AdminHolidayScreen}/>
+                <Stack.Screen name="AdminServiceDetails" component={AdminServiceDetailsScreen}/>
+                <Stack.Screen name="AdminAppointments" component={AdminAppointmentsScreen}/>
+                <Stack.Screen name="AdminAppointmentDetails" component={AdminAppointmentDetailsScreen}/>
+                <Stack.Screen name="AdminEmployeeStatistic" component={AdminEmployeeStatisticScreen}/>
                 <Stack.Screen name="SeeAll" component={SeeAllScreen} />
                 <Stack.Screen name="Search" component={SearchScreen} options={{ animation: "none" }}/>
                 <Stack.Screen name="Appointments" component={AppointmentsScreen} options={{ animation: "none" }}/>

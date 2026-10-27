@@ -4,116 +4,59 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { bottomNavigationStyles as styles } from "../styles/bottomNavigationStyle";
 import { useLanguage } from "../context/LanguageContext";
+import { useAuth } from "../context/AuthContext";
+
+const clientTabs = [
+    { key: "home", route: "Home", label: "homeTitle", Icon: Ionicons, icon: "home-outline", activeIcon: "home" },
+    { key: "search", route: "Search", label: "searchTitle", Icon: Ionicons, icon: "search-outline", activeIcon: "search" },
+    { key: "appointments", route: "Appointments", label: "appointmentsTitle", Icon: MaterialCommunityIcons, icon: "calendar-month-outline", activeIcon: "calendar-month" },
+    { key: "profile", route: "Profile", label: "profileTitle", Icon: Ionicons, icon: "person-outline", activeIcon: "person" },
+];
+
+const adminTabs = [
+    { key: "home", route: "Home", label: "homeTitle", Icon: Ionicons, icon: "home-outline", activeIcon: "home" },
+    { key: "institution", route: "AdminInstitution", label: "navInstitution", Icon: Ionicons, icon: "business-outline", activeIcon: "business" },
+    { key: "queues", route: "AdminQueues", label: "navQueues", Icon: MaterialCommunityIcons, icon: "chevron-triple-right", activeIcon: "chevron-triple-right" },
+    { key: "employees", route: "AdminEmployees", label: "navEmployees", Icon: Ionicons, icon: "people-outline", activeIcon: "people" },
+    { key: "settings", route: "AdminSettings", label: "navSettings", Icon: Ionicons, icon: "settings-outline", activeIcon: "settings" },
+];
 
 export default function BottomNavigation({ navigation, active }) {
     const { t } = useLanguage();
+    const { user } = useAuth();
 
-    const getColor = (tab) =>
-        active === tab ? "#5657C4" : "#111111";
+    const isAdmin = user?.role === "admin";
+    const tabs = isAdmin ? adminTabs : clientTabs;
 
     return (
         <View style={styles.bottomNavigation}>
+            {tabs.map(({ key, route, label, Icon, icon, activeIcon }) => {
+                const isActive = active === key;
 
-            {/* HOME */}
-            <TouchableOpacity
-                style={styles.navItem}
-                onPress={() => navigation.navigate("Home")}
-            >
-                <Ionicons
-                    name={
-                        active === "home"
-                            ? "home"
-                            : "home-outline"
-                    }
-                    size={24}
-                    color={getColor("home")}
-                />
+                return (
+                    <TouchableOpacity
+                        key={key}
+                        style={[styles.navItem, isAdmin && styles.navItemAdmin]}
+                        disabled={!route}
+                        onPress={() => navigation.navigate(route)}
+                    >
+                        <Icon
+                            name={isActive ? activeIcon : icon}
+                            size={24}
+                            color={isActive ? "#5657C4" : "#111111"}
+                        />
 
-                <Text
-                    style={[
-                        styles.navText,
-                        active === "home" && styles.activeText,
-                    ]}
-                >
-                    {t.homeTitle}
-                </Text>
-            </TouchableOpacity>
-
-            {/* SEARCH */}
-            <TouchableOpacity
-                style={styles.navItem}
-                onPress={() => navigation.navigate("Search")}
-            >
-                <Ionicons
-                    name={
-                        active === "search"
-                            ? "search"
-                            : "search-outline"
-                    }
-                    size={24}
-                    color={getColor("search")}
-                />
-
-                <Text
-                    style={[
-                        styles.navText,
-                        active === "search" && styles.activeText,
-                    ]}
-                >
-                    {t.searchTitle}
-                </Text>
-            </TouchableOpacity>
-
-            {/* APPOINTMENTS */}
-            <TouchableOpacity
-                style={styles.navItem}
-                onPress={() => navigation.navigate("Appointments")}
-            >
-                <MaterialCommunityIcons
-                    name={
-                        active === "appointments"
-                            ? "calendar-month"
-                            : "calendar-month-outline"
-                    }
-                    size={24}
-                    color={getColor("appointments")}
-                />
-
-                <Text
-                    style={[
-                        styles.navText,
-                        active === "appointments" && styles.activeText,
-                    ]}
-                >
-                    {t.appointmentsTitle}
-                </Text>
-            </TouchableOpacity>
-
-            {/* PROFILE */}
-            <TouchableOpacity
-                style={styles.navItem}
-                onPress={() => navigation.navigate("Profile")}
-            >
-                <Ionicons
-                    name={
-                        active === "profile"
-                            ? "person"
-                            : "person-outline"
-                    }
-                    size={24}
-                    color={getColor("profile")}
-                />
-
-                <Text
-                    style={[
-                        styles.navText,
-                        active === "profile" && styles.activeText,
-                    ]}
-                >
-                    {t.profileTitle}
-                </Text>
-            </TouchableOpacity>
-
+                        <Text
+                            style={[
+                                styles.navText,
+                                isActive && styles.activeText,
+                            ]}
+                        >
+                            {t[label]}
+                        </Text>
+                    </TouchableOpacity>
+                );
+            })}
         </View>
     );
 }
