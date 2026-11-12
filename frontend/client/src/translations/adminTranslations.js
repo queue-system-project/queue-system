@@ -125,6 +125,14 @@ export const adminTranslations = {
         statAvgIdleTime: "Average Idle Time",
         statWeek: "Week",
         statMonth: "Month",
+
+        editEmployeeTitle: "Edit Profile",
+        editEmployeeInstitution: "Institution",
+        chooseRoom: "Choose room",
+        chooseServices: "Choose your services",
+        editEmployeeMissingName: "Enter first and last name.",
+        editEmployeeInvalidHours: "start time must be before end time.",
+        editEmployeeSaved: "Employee has been updated.",
     },
 
     pl: {
@@ -253,5 +261,13 @@ export const adminTranslations = {
         statAvgIdleTime: "Śr. bezczynność",
         statWeek: "Tydzień",
         statMonth: "Miesiąc",
+
+        editEmployeeTitle: "Edytuj profil",
+        editEmployeeInstitution: "Instytucja",
+        chooseRoom: "Wybierz gabinet",
+        chooseServices: "Wybierz usługi",
+        editEmployeeMissingName: "Podaj imię i nazwisko.",
+        editEmployeeInvalidHours: "godzina rozpoczęcia musi być wcześniejsza niż zakończenia.",
+        editEmployeeSaved: "Dane pracownika zostały zapisane.",
     },
 };

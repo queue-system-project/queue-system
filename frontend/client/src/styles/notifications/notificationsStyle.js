@@ -155,6 +155,20 @@ export const notificationsStyles = StyleSheet.create({
         borderColor: "#5657C4",
     },
 
+    // =========================
+    // Daily statistic (admin)
+    // =========================
+
+    statisticCard: {
+        backgroundColor: "#5657C4",
+        borderColor: "#5657C4",
+    },
+
+    statisticReadCard: {
+        backgroundColor: "#979AD6",
+        borderColor: "#979AD6",
+    },
+
     whiteText: {
         color: "#FFFFFF",
     },

@@ -13,17 +13,17 @@ const WEEKDAYS_10_20 = [0, 1, 2, 3, 4].map(day => ({
 
 export const adminEmployeesMock = [
     {
-        id: 1, title: "Dr.", first_name: "Emma", last_name: "Ficher",
+        id: 1, title: "dr", first_name: "Emma", last_name: "Ficher",
         email: "emma.ficher@novamedical.pl", room: "305 A", status: "active", profile_image: null,
         service_ids: [1, 3], working_hours: WEEKDAYS_10_20, holidays: [2],
     },
     {
-        id: 2, title: "Dr.", first_name: "Zuzanna", last_name: "Ficher",
+        id: 2, title: "dr", first_name: "Zuzanna", last_name: "Ficher",
         email: "zuzanna.ficher@novamedical.pl", room: "306 B", status: "idle", profile_image: null,
         service_ids: [1], working_hours: WEEKDAYS_10_20, holidays: [],
     },
     {
-        id: 3, title: "Dr.", first_name: "Jan", last_name: "Kowalski",
+        id: 3, title: "dr", first_name: "Jan", last_name: "Kowalski",
         email: "jan.kowalski@novamedical.pl", room: "201", status: "overloaded", profile_image: null,
         service_ids: [1, 2], working_hours: WEEKDAYS_10_20, holidays: [4],
     },
@@ -33,7 +33,7 @@ export const adminEmployeesMock = [
         service_ids: [2], working_hours: WEEKDAYS_10_20.slice(0, 3), holidays: [],
     },
     {
-        id: 5, title: "Dr.", first_name: "Piotr", last_name: "Wiśniewski",
+        id: 5, title: "dr", first_name: "Piotr", last_name: "Wiśniewski",
         email: "piotr.wisniewski@novamedical.pl", room: "307", status: "active", profile_image: null,
         service_ids: [3], working_hours: WEEKDAYS_10_20, holidays: [],
     },

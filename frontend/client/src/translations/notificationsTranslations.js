@@ -36,6 +36,9 @@ export const notificationsTranslations = {
         cancelled: "Cancelled",
         skipped: "Skipped",
         missed: "Missed",
+
+        dailyStatisticTitle: "Daily Statistic",
+        dailyStatisticMessage: "Your daily statistic is ready — see how many clients you served today.",
     },
 
     pl: {
@@ -75,5 +78,8 @@ export const notificationsTranslations = {
         cancelled: "Anulowano",
         skipped: "Pominięto",
         missed: "Nieobecność",
+
+        dailyStatisticTitle: "Statystyka dnia",
+        dailyStatisticMessage: "Twoja dzienna statystyka jest gotowa — zobacz, ilu klientów obsłużono dzisiaj.",
     },
 };

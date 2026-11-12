@@ -1004,4 +1004,63 @@ export const adminScreensStyles = StyleSheet.create({
         color: "#111111",
         fontFamily: "Montserrat-SemiBold",
     },
+
+    // =========================
+    // Edit employee
+    // =========================
+
+    editAvatarWrapper: {
+        alignSelf: "center",
+        marginTop: 10,
+    },
+
+    editAvatarBadge: {
+        position: "absolute",
+        right: 6,
+        bottom: 12,
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+        backgroundColor: "#FFFFFF",
+        justifyContent: "center",
+        alignItems: "center",
+    },
+
+    editServiceCard: {
+        marginTop: 12,
+        paddingVertical: 18,
+        paddingHorizontal: 18,
+        borderWidth: 1,
+        borderColor: "#DDDDDD",
+        borderRadius: 20,
+    },
+
+    editServiceTop: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+    },
+
+    editHoursTitle: {
+        marginTop: 32,
+        fontSize: 15,
+    },
+
+    editDayLabel: {
+        marginTop: 8,
+        marginBottom: 10,
+        fontSize: 13,
+        color: "#111111",
+        fontFamily: "Montserrat-Regular",
+    },
+
+    editHoursRow: {
+        flexDirection: "row",
+        gap: 12,
+        marginBottom: 8,
+    },
+
+    editHoursCell: {
+        flex: 1,
+    },
 });

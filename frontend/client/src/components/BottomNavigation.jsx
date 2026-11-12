@@ -21,12 +21,21 @@ const adminTabs = [
     { key: "settings", route: "AdminSettings", label: "navSettings", Icon: Ionicons, icon: "settings-outline", activeIcon: "settings" },
 ];
 
+const employeeTabs = [
+    { key: "home", route: "Home", label: "homeTitle", Icon: Ionicons, icon: "home-outline", activeIcon: "home" },
+    { key: "queue", route: "EmployeeQueue", label: "navQueue", Icon: MaterialCommunityIcons, icon: "chevron-triple-right", activeIcon: "chevron-triple-right" },
+    { key: "appointment", route: "EmployeeAppointment", label: "navAppointment", Icon: MaterialCommunityIcons, icon: "file-clock-outline", activeIcon: "file-clock" },
+    { key: "profile", route: "Profile", label: "profileTitle", Icon: Ionicons, icon: "person-outline", activeIcon: "person" },
+];
+
 export default function BottomNavigation({ navigation, active }) {
     const { t } = useLanguage();
     const { user } = useAuth();
 
     const isAdmin = user?.role === "admin";
-    const tabs = isAdmin ? adminTabs : clientTabs;
+    const tabs = isAdmin
+        ? adminTabs
+        : user?.role === "employee" ? employeeTabs : clientTabs;
 
     return (
         <View style={styles.bottomNavigation}>

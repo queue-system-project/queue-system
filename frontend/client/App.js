@@ -27,6 +27,10 @@ import AdminServiceDetailsScreen from "./src/screens/admin/AdminServiceDetailsSc
 import AdminAppointmentsScreen from "./src/screens/admin/AdminAppointmentsScreen";
 import AdminAppointmentDetailsScreen from "./src/screens/admin/AdminAppointmentDetailsScreen";
 import AdminEmployeeStatisticScreen from "./src/screens/admin/AdminEmployeeStatisticScreen";
+import AdminEditEmployeeScreen from "./src/screens/admin/AdminEditEmployeeScreen";
+import EmployeeHomeScreen from "./src/screens/employee/EmployeeHomeScreen";
+import EmployeeQueueScreen from "./src/screens/employee/EmployeeQueueScreen";
+import EmployeeAppointmentScreen from "./src/screens/employee/EmployeeAppointmentScreen";
 import SeeAllScreen from "./src/screens/home/SeeAllScreen";
 import SearchScreen from "./src/screens/search/SearchScreen";
 import AppointmentsScreen from "./src/screens/appointments/AppointmentsScreen";
@@ -98,7 +102,11 @@ function AppNavigator() {
 
                 <Stack.Screen
                     name="Home"
-                    component={user?.role === "admin" ? AdminHomeScreen : HomeScreen}
+                    component={
+                        user?.role === "admin" ? AdminHomeScreen
+                            : user?.role === "employee" ? EmployeeHomeScreen
+                                : HomeScreen
+                    }
                     options={{ animation: "none" }}
                 />
                 <Stack.Screen name="AdminInstitution" component={AdminInstitutionScreen} options={{ animation: "none" }}/>
@@ -114,6 +122,9 @@ function AppNavigator() {
                 <Stack.Screen name="AdminAppointments" component={AdminAppointmentsScreen}/>
                 <Stack.Screen name="AdminAppointmentDetails" component={AdminAppointmentDetailsScreen}/>
                 <Stack.Screen name="AdminEmployeeStatistic" component={AdminEmployeeStatisticScreen}/>
+                <Stack.Screen name="AdminEditEmployee" component={AdminEditEmployeeScreen}/>
+                <Stack.Screen name="EmployeeQueue" component={EmployeeQueueScreen} options={{ animation: "none" }}/>
+                <Stack.Screen name="EmployeeAppointment" component={EmployeeAppointmentScreen} options={{ animation: "none" }}/>
                 <Stack.Screen name="SeeAll" component={SeeAllScreen} />
                 <Stack.Screen name="Search" component={SearchScreen} options={{ animation: "none" }}/>
                 <Stack.Screen name="Appointments" component={AppointmentsScreen} options={{ animation: "none" }}/>

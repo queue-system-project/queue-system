@@ -7,9 +7,9 @@ export const adminQueuesMock = [
     {
         id: 1,
         service: {
-            name: "General Consultation",
+            name: "Konsultacja ogólna",
             standard_duration: 20,
-            description: "Consultation with a doctor for health assessment, diagnosis, medical advice, and treatment recommendations.",
+            description: "Konsultacja lekarska obejmująca ocenę stanu zdrowia, diagnozę, poradę medyczną i zalecenia dotyczące leczenia.",
         },
         spots: 10,
         queue: 10,
@@ -25,7 +25,7 @@ export const adminQueuesMock = [
             id: 1,
             first_name: "Emma",
             last_name: "Ficher",
-            title: "Dr.",
+            title: "dr",
             room: "305 A",
             profile_image: null,
         },
@@ -33,9 +33,9 @@ export const adminQueuesMock = [
     {
         id: 2,
         service: {
-            name: "General Consultation",
+            name: "Konsultacja ogólna",
             standard_duration: 20,
-            description: "Consultation with a doctor for health assessment, diagnosis, medical advice, and treatment recommendations.",
+            description: "Konsultacja lekarska obejmująca ocenę stanu zdrowia, diagnozę, poradę medyczną i zalecenia dotyczące leczenia.",
         },
         spots: 10,
         queue: 5,
@@ -51,7 +51,7 @@ export const adminQueuesMock = [
             id: 2,
             first_name: "Zuzanna",
             last_name: "Ficher",
-            title: "Dr.",
+            title: "dr",
             room: "306 B",
             profile_image: null,
         },
@@ -59,9 +59,9 @@ export const adminQueuesMock = [
     {
         id: 3,
         service: {
-            name: "Blood Test",
+            name: "Badanie krwi",
             standard_duration: 10,
-            description: "Collection of a blood sample for laboratory analysis and routine health screening.",
+            description: "Pobranie próbki krwi do analizy laboratoryjnej i rutynowych badań profilaktycznych.",
         },
         spots: 18,
         queue: 4,

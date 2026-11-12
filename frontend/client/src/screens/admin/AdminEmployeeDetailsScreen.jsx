@@ -37,8 +37,7 @@ export default function AdminEmployeeDetailsScreen({ navigation, route }) {
                 title={t.employeeDetailsTitle}
                 navigation={navigation}
                 actionIcon="pencil"
-                // TODO: ekran edycji pracownika
-                onAction={() => {}}
+                onAction={() => navigation.navigate("AdminEditEmployee", { employee })}
             />
 
             <ScrollView

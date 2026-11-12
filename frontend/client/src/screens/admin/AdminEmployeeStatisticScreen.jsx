@@ -6,6 +6,8 @@ import AdminBackHeader from "../../components/admin/AdminBackHeader";
 import EmployeeAvatar, { getEmployeeName } from "../../components/admin/EmployeeAvatar";
 
 import { useLanguage } from "../../context/LanguageContext";
+import { useAuth } from "../../context/AuthContext";
+import { isShiftActive } from "../../constants/employee/employeePanelMock";
 import { adminEmployeesMock } from "../../constants/admin/adminEmployeesMock";
 import {
     adminEmployeeLiveStatsMock,
@@ -39,31 +41,36 @@ function StatCard({ label, value, color }) {
     );
 }
 
+// stats = null: brak danych (np. po zakończeniu zmiany), wartości jako "-".
 function StatGrid({ stats, idleLabel, t }) {
+    const show = format => (stats ? format(stats) : "-");
+
     return (
         <>
             <View style={styles.statsRow}>
-                <StatCard label={t.statConfirmed} value={stats.confirmed} color={GREEN}/>
-                <StatCard label={t.statAvgTimeService} value={`${stats.avgServiceMinutes} ${t.min}`}/>
+                <StatCard label={t.statConfirmed} value={show(s => s.confirmed)} color={GREEN}/>
+                <StatCard label={t.statAvgTimeService} value={show(s => `${s.avgServiceMinutes} ${t.min}`)}/>
             </View>
             <View style={[styles.statsRow, styles.statsRowSpaced]}>
-                <StatCard label={t.statWorkTime} value={formatDuration(stats.workMinutes)}/>
-                <StatCard label={idleLabel} value={formatDuration(stats.idleMinutes)} color={PURPLE}/>
+                <StatCard label={t.statWorkTime} value={show(s => formatDuration(s.workMinutes))}/>
+                <StatCard label={idleLabel} value={show(s => formatDuration(s.idleMinutes))} color={PURPLE}/>
             </View>
         </>
     );
 }
 
-function PeriodHeader({ title, label, onPrev, onNext, nextDisabled }) {
+function PeriodHeader({ title, label, onPrev, onNext, nextDisabled, showExport = true }) {
     return (
         <>
             <View style={styles.periodHeader}>
                 <Text style={[styles.sectionTitle, { fontSize: 17 }]}>{title}</Text>
 
                 {/* TODO: eksport statystyk */}
-                <TouchableOpacity activeOpacity={0.7}>
-                    <Ionicons name="download-outline" size={22} color={PURPLE}/>
-                </TouchableOpacity>
+                {showExport && (
+                    <TouchableOpacity activeOpacity={0.7}>
+                        <Ionicons name="download-outline" size={22} color={PURPLE}/>
+                    </TouchableOpacity>
+                )}
             </View>
 
             <View style={styles.periodRow}>
@@ -92,11 +99,20 @@ function PeriodHeader({ title, label, onPrev, onNext, nextDisabled }) {
 
 export default function AdminEmployeeStatisticScreen({ navigation, route }) {
     const { t } = useLanguage();
+    const { user } = useAuth();
     const locale = t.locale || "en-GB";
+
+    // Pracownik ogląda własne statystyki: bez karty pracownika i eksportu,
+    // z sekcją "Dzisiaj" i rozwijaną listą dni tygodnia.
+    const isOwn = user?.role === "employee";
+    const [showAllDays, setShowAllDays] = useState(false);
 
     // TODO: podmienić na statystyki z API.
     const employee = route?.params?.employee ?? adminEmployeesMock[0];
-    const live = adminEmployeeLiveStatsMock[employee.id] ?? adminEmployeeLiveStatsMock.default;
+    const liveStats = adminEmployeeLiveStatsMock[employee.id] ?? adminEmployeeLiveStatsMock.default;
+
+    // Po zakończeniu zmiany pracownika statystyki "na żywo" nie są liczone.
+    const live = isOwn && !isShiftActive(employee) ? null : liveStats;
 
     const today = new Date();
     const currentWeek = startOfWeek(today);
@@ -115,8 +131,15 @@ export default function AdminEmployeeStatisticScreen({ navigation, route }) {
 
     // Szczegóły dnia: dzisiaj w bieżącym tygodniu, w pozostałych poniedziałek.
     const dayIndex = weekStart.getTime() === currentWeek.getTime() ? (today.getDay() + 6) % 7 : 0;
-    const selectedDay = weekDays[dayIndex];
-    const selectedStats = weekDaily[dayIndex] ?? { confirmed: 0, avgServiceMinutes: 0, workMinutes: 0, idleMinutes: 0 };
+    const EMPTY_STATS = { confirmed: 0, avgServiceMinutes: 0, workMinutes: 0, idleMinutes: 0 };
+
+    // Rozwinięta lista pokazuje wszystkie dni tygodnia, które już minęły.
+    const visibleDays = showAllDays
+        ? weekDays.map((day, index) => ({ day, stats: weekDaily[index] })).filter(item => item.stats)
+        : [{ day: weekDays[dayIndex], stats: weekDaily[dayIndex] ?? EMPTY_STATS }];
+
+    // TODAY
+    const todayStats = aggregateStats([getEmployeeDailyStats(employee, today)]);
 
     // Słupki skalowane do najwyższej wartości danej metryki w tygodniu.
     const weekMax = key => Math.max(...weekDaily.map(day => day?.[key] ?? 0), 1);
@@ -138,16 +161,36 @@ export default function AdminEmployeeStatisticScreen({ navigation, route }) {
                 showsVerticalScrollIndicator={false}
             >
                 {/* EMPLOYEE */}
-                <View style={[styles.employeeCard, { marginTop: 24 }]}>
-                    <EmployeeAvatar employee={employee}/>
-                    <Text style={styles.employeeName}>{getEmployeeName(employee)}</Text>
-                </View>
+                {!isOwn && (
+                    <View style={[styles.employeeCard, { marginTop: 24 }]}>
+                        <EmployeeAvatar employee={employee}/>
+                        <Text style={styles.employeeName}>{getEmployeeName(employee)}</Text>
+                    </View>
+                )}
 
                 {/* LIVE */}
-                <Text style={[styles.sectionTitle, { fontSize: 17, marginTop: 40, marginBottom: 16 }]}>
+                <Text style={[styles.sectionTitle, { fontSize: 17, marginTop: isOwn ? 16 : 40, marginBottom: 16 }]}>
                     {t.liveStatistic}
                 </Text>
                 <StatGrid stats={live} idleLabel={t.statIdleTime} t={t}/>
+
+                {/* TODAY */}
+                {isOwn && (
+                    <>
+                        <View style={[styles.periodHeader, { marginBottom: 18 }]}>
+                            <Text style={[styles.sectionTitle, { fontSize: 17 }]}>{t.today}</Text>
+
+                            <View style={styles.periodPill}>
+                                <Text style={styles.periodPillText}>{formatDate(today)}</Text>
+                            </View>
+                        </View>
+                        <StatGrid
+                            stats={{ ...todayStats, idleMinutes: todayStats.avgIdleMinutes }}
+                            idleLabel={t.statAvgIdleTime}
+                            t={t}
+                        />
+                    </>
+                )}
 
                 {/* WEEK */}
                 <PeriodHeader
@@ -156,32 +199,49 @@ export default function AdminEmployeeStatisticScreen({ navigation, route }) {
                     onPrev={() => setWeekStart(addDays(weekStart, -7))}
                     onNext={() => setWeekStart(addDays(weekStart, 7))}
                     nextDisabled={weekStart >= currentWeek}
+                    showExport={!isOwn}
                 />
                 <StatGrid stats={{ ...week, idleMinutes: week.avgIdleMinutes }} idleLabel={t.statAvgIdleTime} t={t}/>
 
-                <Text style={styles.dayTitle}>
-                    {selectedDay.toLocaleDateString(locale, {
-                        weekday: "short",
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                    })}
-                </Text>
+                {visibleDays.map(({ day, stats }) => (
+                    <View key={day.toISOString()}>
+                        <Text style={styles.dayTitle}>
+                            {day.toLocaleDateString(locale, {
+                                weekday: "short",
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                            })}
+                        </Text>
 
-                {DAY_BARS.map(bar => {
-                    const value = selectedStats[bar.key];
-                    const percent = (value / weekMax(bar.key)) * 75;
+                        {DAY_BARS.map(bar => {
+                            const value = stats[bar.key];
+                            const percent = (value / weekMax(bar.key)) * 75;
 
-                    return (
-                        <View key={bar.key}>
-                            <Text style={styles.dayBarLabel}>{t[bar.label]}</Text>
-                            <View style={styles.dayBarRow}>
-                                <View style={[styles.dayBar, { width: `${Math.max(percent, 2)}%`, backgroundColor: bar.color }]}/>
-                                <Text style={styles.dayBarValue}>{formatBarValue(bar.key, value)}</Text>
-                            </View>
-                        </View>
-                    );
-                })}
+                            return (
+                                <View key={bar.key}>
+                                    <Text style={styles.dayBarLabel}>{t[bar.label]}</Text>
+                                    <View style={styles.dayBarRow}>
+                                        <View style={[styles.dayBar, { width: `${Math.max(percent, 2)}%`, backgroundColor: bar.color }]}/>
+                                        <Text style={styles.dayBarValue}>{formatBarValue(bar.key, value)}</Text>
+                                    </View>
+                                </View>
+                            );
+                        })}
+                    </View>
+                ))}
+
+                {isOwn && (
+                    <TouchableOpacity
+                        style={[styles.outlineButton, { marginTop: 28 }]}
+                        activeOpacity={0.7}
+                        onPress={() => setShowAllDays(!showAllDays)}
+                    >
+                        <Text style={styles.outlineButtonText}>
+                            {showAllDays ? t.showLess : t.adminMore}
+                        </Text>
+                    </TouchableOpacity>
+                )}
 
                 {/* MONTH */}
                 <PeriodHeader
@@ -190,6 +250,7 @@ export default function AdminEmployeeStatisticScreen({ navigation, route }) {
                     onPrev={() => setMonthStart(new Date(monthStart.getFullYear(), monthStart.getMonth() - 1, 1))}
                     onNext={() => setMonthStart(nextMonth)}
                     nextDisabled={monthStart >= currentMonth}
+                    showExport={!isOwn}
                 />
                 <StatGrid stats={{ ...month, idleMinutes: month.avgIdleMinutes }} idleLabel={t.statAvgIdleTime} t={t}/>
             </ScrollView>

@@ -241,7 +241,7 @@ export default function ProfileScreen({ navigation }) {
                             onPress={handleDeleteAccount}
                         >
                             {deleting ? (
-                                <ActivityIndicator size="small" color="#FFFFFF"/>
+                                <ActivityIndicator size="small" color="#E21D25"/>
                             ) : (
                                 <Text style={styles.modalDeleteText}>
                                     {t.deleteAccount}

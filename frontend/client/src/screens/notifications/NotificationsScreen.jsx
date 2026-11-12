@@ -7,6 +7,8 @@ import { notificationsStyles as styles } from "../../styles/notifications/notifi
 import BottomNavigation from "../../components/BottomNavigation";
 import EmptyState from "../../components/EmptyState";
 import { useLanguage } from "../../context/LanguageContext";
+import { useAuth } from "../../context/AuthContext";
+import { adminNotificationsMock } from "../../constants/admin/adminNotificationsMock";
 
 import {
     getNotifications,
@@ -48,6 +50,16 @@ function groupNotifications(data) {
 }
 
 function NotificationIcon({ notification, isRead }) {
+    if (notification.type === "statistic") {
+        return (
+            <MaterialCommunityIcons
+                name="file-chart-outline"
+                size={30}
+                color="#FFFFFF"
+            />
+        );
+    }
+
     if (notification.type === "turn") {
         return (
             <MaterialCommunityIcons
@@ -129,6 +141,10 @@ function NotificationIcon({ notification, isRead }) {
 function NotificationCard({ notification, onPress }) {
     const isRead = notification.read;
     const isTurn = notification.type === "turn";
+    const isStatistic = notification.type === "statistic";
+
+    // Karta statystyki ma biały tekst także po przeczytaniu (jaśniejsze tło).
+    const isWhite = (isTurn && !isRead) || isStatistic;
 
     return (
         <TouchableOpacity
@@ -149,6 +165,9 @@ function NotificationCard({ notification, onPress }) {
                 styles.lastChanceCard,
 
                 isRead && styles.readCard,
+
+                isStatistic &&
+                (isRead ? styles.statisticReadCard : styles.statisticCard),
             ]}
         >
             <View style={styles.cardContent}>
@@ -164,8 +183,8 @@ function NotificationCard({ notification, onPress }) {
                         <Text
                             style={[
                                 styles.cardTitle,
-                                isTurn && !isRead && styles.whiteText,
-                                isRead && styles.readTitle,
+                                isWhite && styles.whiteText,
+                                isRead && !isStatistic && styles.readTitle,
                             ]}
                         >
                             {notification.title
@@ -178,8 +197,8 @@ function NotificationCard({ notification, onPress }) {
                         <Text
                             style={[
                                 styles.cardText,
-                                isTurn && !isRead && styles.turnDescription,
-                                isRead && styles.readText,
+                                isWhite && styles.turnDescription,
+                                isRead && !isStatistic && styles.readText,
                             ]}
                         >
                             {notification.text}
@@ -188,8 +207,8 @@ function NotificationCard({ notification, onPress }) {
                         <Text
                             style={[
                                 styles.time,
-                                isTurn && !isRead && styles.turnTime,
-                                isRead && styles.readTime,
+                                isWhite && styles.turnTime,
+                                isRead && !isStatistic && styles.readTime,
                             ]}
                         >
                             {notification.time}
@@ -203,6 +222,10 @@ function NotificationCard({ notification, onPress }) {
 
 export default function NotificationsScreen({ navigation }) {
     const { t } = useLanguage();
+    const { user } = useAuth();
+
+    // Admin i pracownik dostają raporty dzienne zamiast powiadomień klienta.
+    const isStaff = user?.role === "admin" || user?.role === "employee";
 
     const [notifications, setNotifications] = useState({
         today: [],
@@ -215,6 +238,18 @@ export default function NotificationsScreen({ navigation }) {
         try {
             if (showLoading) setLoading(true);
 
+            // TODO: admin i pracownik dostają mock, dopóki backend nie wysyła raportów dziennych.
+            if (isStaff) {
+                setNotifications(groupNotifications(
+                    adminNotificationsMock.map(item => ({
+                        ...item,
+                        title: t[item.titleKey],
+                        message: t[item.messageKey],
+                    }))
+                ));
+                return;
+            }
+
             const data = await getNotifications();
             setNotifications(groupNotifications(data));
 
@@ -224,7 +259,7 @@ export default function NotificationsScreen({ navigation }) {
         } finally {
             if (showLoading) setLoading(false);
         }
-    }, []);
+    }, [isStaff, t]);
 
     useFocusEffect(
         useCallback(() => {
@@ -233,12 +268,14 @@ export default function NotificationsScreen({ navigation }) {
     );
 
     useEffect(() => {
+        if (isStaff) return undefined;
+
         const interval = setInterval(() => {
             loadNotifications();
         }, 3000);
 
         return () => clearInterval(interval);
-    }, [loadNotifications]);
+    }, [isStaff, loadNotifications]);
 
     const openNotification = async notification => {
         const updated = {
@@ -261,11 +298,22 @@ export default function NotificationsScreen({ navigation }) {
             ),
         }));
 
-        navigation.navigate("NotificationDetails", {
-            notification: updated,
-        });
+        // TODO: przy API raportów zastąpić przez markNotificationRead.
+        if (isStaff) {
+            const mock = adminNotificationsMock.find(item => item.id === notification.id);
+            if (mock) mock.is_read = true;
+        }
 
-        if (!notification.read) {
+        // Statystyka prowadzi do dashboardu admina ze statystykami dnia.
+        if (notification.type === "statistic") {
+            navigation.navigate("Home");
+        } else {
+            navigation.navigate("NotificationDetails", {
+                notification: updated,
+            });
+        }
+
+        if (!notification.read && !isStaff) {
             try {
                 await markNotificationRead(notification.id);
             } catch (error) {

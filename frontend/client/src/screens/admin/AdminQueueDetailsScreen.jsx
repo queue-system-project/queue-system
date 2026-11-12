@@ -5,20 +5,11 @@ import BottomNavigation from "../../components/BottomNavigation";
 import AdminBackHeader from "../../components/admin/AdminBackHeader";
 import EmployeeAvatar, { getEmployeeName } from "../../components/admin/EmployeeAvatar";
 import RoomBadge from "../../components/admin/RoomBadge";
+import QueueBreakdownCard from "../../components/admin/QueueBreakdownCard";
 
 import { useLanguage } from "../../context/LanguageContext";
 import { adminQueuesMock } from "../../constants/admin/adminQueuesMock";
 import { adminScreensStyles as styles } from "../../styles/admin/adminScreensStyle";
-
-const BREAKDOWN = [
-    { key: "inService", label: "inService", color: "#B8F0BE" },
-    { key: "waiting", label: "waitingLabel", color: "#FFF0A6" },
-    { key: "missed", label: "missedLabel", color: "#FFFFFF" },
-    { key: "cancelled", label: "cancelledLabel", color: "#FADBDB" },
-];
-
-// Najkrótszy pasek, żeby małe wartości (także 0) były widoczne.
-const MIN_BAR_PERCENT = 10;
 
 function LiveCard({ label, value, light }) {
     return (
@@ -34,8 +25,6 @@ export default function AdminQueueDetailsScreen({ navigation, route }) {
 
     const queue = route?.params?.queue ?? adminQueuesMock[0];
     const { service, employee, stats } = queue;
-
-    const maxValue = Math.max(...BREAKDOWN.map(item => stats[item.key] ?? 0), 1);
 
     return (
         <View style={styles.container}>
@@ -72,25 +61,7 @@ export default function AdminQueueDetailsScreen({ navigation, route }) {
                     <LiveCard label={t.delayTime} value={`+ ${Number(queue.delay) || 0} ${t.min}`}/>
                 </View>
 
-                <View style={styles.breakdownCard}>
-                    {BREAKDOWN.map(item => {
-                        const value = stats[item.key] ?? 0;
-                        const percent = Math.max((value / maxValue) * 100, MIN_BAR_PERCENT);
-
-                        return (
-                            <View key={item.key}>
-                                <Text style={styles.breakdownLabel}>{t[item.label]}</Text>
-
-                                <View style={styles.breakdownRow}>
-                                    <View style={[styles.breakdownTrack, { width: `${percent * 0.85}%` }]}>
-                                        <View style={[styles.breakdownBar, { backgroundColor: item.color }]}/>
-                                    </View>
-                                    <Text style={styles.breakdownValue}>{value}</Text>
-                                </View>
-                            </View>
-                        );
-                    })}
-                </View>
+                <QueueBreakdownCard stats={stats}/>
 
                 <View style={[styles.statsRow, styles.statsRowSpaced]}>
                     <LiveCard label={t.maxQueueLength} value={stats.maxQueueLength} light/>

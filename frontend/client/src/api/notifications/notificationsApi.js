@@ -60,6 +60,14 @@ export function mapNotification(
 
     else if (
         eventKey.startsWith(
+            "report:"
+        )
+    ) {
+        type = "statistic";
+    }
+
+    else if (
+        eventKey.startsWith(
             "queue:"
         )
     ) {
