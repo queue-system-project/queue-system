@@ -22,6 +22,9 @@ def test_warsaw_days_and_dst_boundaries():
 def test_saved_report_finalizes_after_late_visit_and_notifies_once(env):
     first = book(env).json()
     second = book(env, who="bob").json()
+    # Scenariusz obsługi obejmuje wcześniejsze potwierdzenie przez klienta.
+    assert env.client.post("/api/queue/confirm", headers=env.headers("alice"), json={
+        "user_id": str(env.ids["alice"]), "queue_entry_id": first["id"]}).status_code == 200
     r = env.client.post("/api/visit/start", headers=env.headers("staff"), json={
         "queue_entry_id": first["id"], "employee_id": str(env.ids["employee"])})
     assert r.status_code == 201

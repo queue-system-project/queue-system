@@ -29,6 +29,11 @@ terminu odpowiedzi wyznaczonego przez serwer.
   wpisy z priority_at, a pozostałe są porządkowane według created_at i id.
 - Oczekiwanie zależy od czasu trwania usługi oraz dostępnych aktywnych pracowników
   do niej przypisanych. Uwzględnia rozpoczęte wizyty, także w innych usługach.
+- Bez preferencji pracownika `employee_id` pozostaje pusty do rozpoczęcia obsługi.
+  Każde przeliczenie wybiera najwcześniejszy dostępny termin w celu wyznaczenia ETA.
+  Jawny wybór klienta i pracownik powiązanego slotu nie są zmieniani automatycznie.
+  Wcześniej zapisane przypisania pozostają bez zmian: baza nie rozróżnia starego
+  automatycznego przypisania od jawnego wyboru klienta.
 - Dla trwającej wizyty używane jest actual_start + standard_duration. Po
   przekroczeniu tej chwili pracownik jest traktowany jako zajęty przez co najmniej
   kolejną minutę. To aktualizowana ocena, nie obietnica zakończenia za minutę.
@@ -40,10 +45,10 @@ terminu odpowiedzi wyznaczonego przez serwer.
 - delay_time to różnica w minutach względem pierwszej obliczonej chwili rozpoczęcia.
   delay_duration wizyty to actual_duration minus standard_duration.
 
-Jest to ocena bieżącej kolejki. Nie obejmuje jeszcze terminów kalendarzowych,
-godzin pracy ani świąt. Kolejki oczekujących do różnych usług tego samego
-pracownika nie tworzą wspólnego harmonogramu. Należy uwzględnić te ograniczenia
-przy planowaniu zapisów na przyszłe dni. Przy wyłączonym mechanizmie czasowym
+Szacunki uwzględniają datę rezerwacji, termin slotu, godziny pracy i dni wolne.
+Kolejki oczekujących do różnych usług tego samego pracownika nie tworzą wspólnego
+harmonogramu. Należy uwzględnić to ograniczenie przy planowaniu zapisów na przyszłe dni.
+Przy wyłączonym mechanizmie czasowym
 ETA aktualizuje się tylko podczas operacji na kolejce.
 
 ## Potwierdzenia
@@ -60,13 +65,16 @@ ponownej prośby ani nie przesuwa terminu.
 - „Tak”: POST /api/queue/confirm → confirmed; zapis confirmed_at i arrival_time.
 - „Nie”: POST /api/queue/cancel → cancelled; ponowne przeliczenie kolejki.
 - Upływ terminu: automatyczny skipped, zwolnienie pozycji i przeliczenie kolejki.
-- Po terminie potwierdzenie i rozpoczęcie wizyty waiting są odrzucane, nawet jeśli
-  cykl nie zdążył jeszcze zapisać skipped. Ponowne potwierdzenie wpisu confirmed
+- Po terminie potwierdzenie jest odrzucane, nawet jeśli
+  cykl nie zdążył jeszcze zapisać skipped. Rozpoczęcie obsługi wymaga `confirmed`.
+  Ręczny `/api/queue/skip` zwraca HTTP 410; status nadaje wyłącznie timer.
+  Ponowne potwierdzenie wpisu confirmed
   jest idempotentne.
 - Dla zachowania zgodności klient nadal może potwierdzić przybycie przed
   automatyczną prośbą, lecz dopiero w dniu wizyty.
 
-Nieobecność `missed` oznacza pracownik przez `/api/queue/missed`; nie jest wykrywana automatycznie.
+Nieobecność `missed` oznacza pracownik przez `/api/queue/missed` wyłącznie dla `confirmed`;
+nie jest wykrywana automatycznie.
 Ręczne zamknięcie dnia opisano w [day-closure.md](day-closure.md). Oferty urgent/last-minute
 włącza się osobno; zob. [queue-offers.md](queue-offers.md).
 
@@ -76,7 +84,7 @@ Obiekty kolejki zawierają estimated_wait_time, delay_time, estimated_start_at,
 eta_updated_at, confirmation_sent_at, confirmation_expires_at, confirmed_at
 i arrival_time. Czas jest podawany w UTC z Z. Klient powinien wyświetlać termin
 wyznaczony przez serwer, a nie odliczać nowe dwie minuty od otwarcia powiadomienia.
-Pola są dostępne w join/confirm/skip, odczycie statusu i kolejki instytucji oraz
+Pola są dostępne w join/confirm/missed, odczycie statusu i kolejki instytucji oraz
 w migawkach WebSocket. Zmiana ETA nie tworzy za każdym razem push:
 aktualizacja ekranu przychodzi przez WebSocket.
 

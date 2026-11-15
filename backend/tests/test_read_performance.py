@@ -6,7 +6,8 @@ import jwt
 import pytest
 from sqlalchemy import event, select, update
 
-from app import security
+# Import uwzględnia przeniesienie mechanizmu sesji do pakietu core.
+from app.core import security
 from app.database.connection import pool_options
 from app.models.catalog import Service
 from app.models.queue import QueueEntry

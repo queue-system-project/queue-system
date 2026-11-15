@@ -96,8 +96,9 @@ def test_offer_claim_rollback_leaves_window_available(env, monkeypatch):
     async def fail(*args, **kwargs):
         raise RuntimeError("notification failed")
     monkeypatch.setattr(routes, "queue_changed", fail)
-    with pytest.raises(RuntimeError):
-        env.client.post(f"/api/offers/urgent/{offer['id']}/respond",headers=env.headers("bob"),json={"accept":True})
+    # Middleware zwraca HTTP 500; sprawdzenie bazy nadal potwierdza rollback.
+    response = env.client.post(f"/api/offers/urgent/{offer['id']}/respond",headers=env.headers("bob"),json={"accept":True})
+    assert response.status_code == 500
     async def check():
         async with env.sessions() as db:
             assert (await db.get(OfferWindow,UUID(offer["window_id"]))).status == "active"

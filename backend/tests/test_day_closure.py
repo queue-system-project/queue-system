@@ -37,6 +37,11 @@ def test_missed_is_manual_scoped_and_idempotent(env):
     join(env, "bob")
     assert missed(env, first, "alice").status_code == 403
     assert missed(env, first, "outsider", "other_employee").status_code == 403
+    # Oczekujący klient nie może zostać oznaczony jako nieobecny bez potwierdzenia.
+    assert missed(env, first).status_code == 409
+    # Scenariusz obsługi obejmuje wcześniejsze potwierdzenie przez klienta.
+    assert env.client.post("/api/queue/confirm", headers=env.headers("alice"), json={
+        "user_id": str(env.ids["alice"]), "queue_entry_id": first["id"]}).status_code == 200
     r = missed(env, first)
     assert r.status_code == 200, r.text
     assert r.json()["status"] == "missed"
@@ -103,6 +108,9 @@ def test_close_cancels_waiting_and_confirmed_once_and_blocks_new_join(env, monke
 
 def test_close_preserves_in_service_and_allows_manual_finish(env):
     a = join(env)
+    # Scenariusz obsługi obejmuje wcześniejsze potwierdzenie przez klienta.
+    assert env.client.post("/api/queue/confirm", headers=env.headers("alice"), json={
+        "user_id": str(env.ids["alice"]), "queue_entry_id": a["id"]}).status_code == 200
     r = env.client.post("/api/visit/start", headers=env.headers("staff"), json={
         "queue_entry_id": a["id"], "employee_id": str(env.ids["employee"])})
     assert r.status_code == 201
@@ -165,8 +173,8 @@ def test_failed_close_rolls_back_closure_entries_and_notifications(env, monkeypa
         await original(*args, **kwargs)
         raise RuntimeError("rollback test")
     monkeypatch.setattr(module, "queue_changed", fail)
-    with pytest.raises(RuntimeError):
-        close(env)
+    # Middleware zwraca HTTP 500; stan bazy musi pozostać sprzed transakcji.
+    assert close(env).status_code == 500
     async def check():
         async with env.sessions() as db:
             assert (await db.get(QueueEntry, UUID(a["id"]))).status == "waiting"

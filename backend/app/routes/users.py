@@ -268,6 +268,14 @@ async def forgot_password(
         "message": "If an eligible account exists, a code has been sent"
     }
 
+# Wstępna kontrola nie zużywa kodu; reset sprawdza go ponownie i zużywa atomowo.
+@router.post("/verify-reset-code", response_model=VerifyResetCodeResponse)
+async def verify_reset_code(data: VerifyResetCodeRequest, db: AsyncSession = Depends(get_db)):
+    if await check(db, data.login, data.code, "reset") is None:
+        raise HTTPException(400, "Invalid or expired verification code")
+    return {"message": "Reset code verified successfully"}
+
+
 @router.post("/reset-password", response_model=ResetPasswordResponse)
 async def reset_password(data: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
     # Zmiana hasła, zużycie kodu i unieważnienie wszystkich sesji są jedną transakcją.

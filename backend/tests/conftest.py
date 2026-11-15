@@ -26,7 +26,8 @@ from app.models.employees import Employee, EmployeeService
 from app.models.users import User
 from app.routes.users import get_db
 from app.routes import realtime
-from app import security
+# Moduł przeniesiono do core podczas porządkowania struktury backendu.
+from app.core import security
 
 sessions_table = Table("refresh_tokens", Base.metadata,
     Column("id", Uuid, primary_key=True), Column("user_id", Uuid),

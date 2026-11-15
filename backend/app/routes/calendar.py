@@ -76,7 +76,8 @@ async def validate_bookings(db, institution_id):
         raise HTTPException(409, "Schedule conflicts with an active booking; resolve the booking first")
 
 
-@router.get("/institutions/{institution_id}/working-hours")
+# Pełny grafik ma osobny adres; working-hours zachowuje listę używaną przez klienta.
+@router.get("/institutions/{institution_id}/schedule")
 async def institution_schedule(institution_id: UUID, db=Depends(get_db)):
     if await db.get(Institution, institution_id) is None:
         raise HTTPException(404, "Institution not found")

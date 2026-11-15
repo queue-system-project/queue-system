@@ -86,7 +86,7 @@ Hub działa w pamięci jednego procesu. Dla wielu workers potrzebna jest wspóln
 
 ## Punkty integracji i dalsza praca
 
-Podłączone operacje: join, cancel, confirm, skip, visit/start, visit/end, visit/cancel. Dla nich dodano również uwierzytelnienie i sprawdzenie tożsamości klienta/pracownika. Poprawiono mapowanie QueueEntry.employee_id i błędne budowanie zapytań statystycznych.
+Podłączone operacje: join, cancel, confirm, missed, visit/start, visit/end, visit/cancel oraz automatyczny timeout do skipped. Ręczny skip zwraca HTTP 410. Operacje HTTP wymagają uwierzytelnienia i sprawdzenia tożsamości klienta/pracownika. Poprawiono mapowanie QueueEntry.employee_id i błędne budowanie zapytań statystycznych.
 
 Dodano ETA, opóźnienia i harmonogram potwierdzeń; pola czasu są dostępne w snapshotach (ograniczenia: eta-confirmations.md). Dodano backend urgent/last-minute (queue-offers.md). Pozostaje pełna integracja mobilna. Rzeczywiste powiadomienia Firebase sprawdzono na Androidzie w tle i przy otwartej aplikacji; iOS/APNs odłożono. Nie zostały zmienione wszystkie pozostałe endpointy projektu; starsze moduły zarządzania personelem, slotami i profilem nadal wymagają osobnego przeglądu uprawnień. To nie jest deklaracja bezpieczeństwa całej aplikacji.
 

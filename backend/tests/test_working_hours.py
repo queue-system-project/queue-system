@@ -52,7 +52,8 @@ def test_schedule_change_cannot_invalidate_booking(env):
     day = datetime.fromisoformat(slot["slot_start"].replace("Z", "+00:00")).date()
     r = hours(env, day, [("11:00", "17:00")])
     assert r.status_code == 409
-    r = env.client.get(f"/api/institutions/{env.ids['institution']}/working-hours")
+    # Pełna konfiguracja ma osobną trasę; working-hours nadal zwraca samą listę.
+    r = env.client.get(f"/api/institutions/{env.ids['institution']}/schedule")
     assert r.json()["enabled"] is False
     assert hours(env, day, [("09:00", "17:00")]).status_code == 200
 
@@ -108,6 +109,9 @@ def test_restart_closes_previous_day_but_preserves_future_booking(env):
 
 def test_automatic_close_does_not_end_ongoing_visit(env):
     entry = book(env).json()
+    # Scenariusz obsługi obejmuje wcześniejsze potwierdzenie przez klienta.
+    assert env.client.post("/api/queue/confirm", headers=env.headers("alice"), json={
+        "user_id": str(env.ids["alice"]), "queue_entry_id": entry["id"]}).status_code == 200
     r = env.client.post("/api/visit/start", headers=env.headers("staff"), json={
         "queue_entry_id": entry["id"], "employee_id": str(env.ids["employee"])})
     assert r.status_code == 201

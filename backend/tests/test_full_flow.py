@@ -20,6 +20,9 @@ def test_postgres_registration_to_saved_report(env, monkeypatch):
     entry_id = r.json()["id"]
     with env.client.websocket_connect(f"/ws/user/{user_id}", headers=headers) as ws:
         assert ws.receive_json()["data"]["queue"][0]["id"] == entry_id
+    # Pełny przebieg wymaga potwierdzenia klienta przed rozpoczęciem obsługi.
+    assert env.client.post("/api/queue/confirm", headers=headers, json={
+        "user_id": user_id, "queue_entry_id": entry_id}).status_code == 200
     r = env.client.post("/api/visit/start", headers=env.headers("staff"), json={
         "queue_entry_id": entry_id, "employee_id": str(env.ids["employee"])})
     assert r.status_code == 201

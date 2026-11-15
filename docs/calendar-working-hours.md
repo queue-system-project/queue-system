@@ -38,7 +38,10 @@ przyspieszyć pierwotny termin; utrwalony czas przybycia nadal obowiązuje.
 
 ## Grafik instytucji
 
-`GET /api/institutions/{id}/working-hours` udostępnia konfigurację.
+`GET /api/institutions/{id}/schedule` udostępnia pełną konfigurację
+(`enabled`, `timezone`, `intervals`, `holidays`).
+`GET /api/institutions/{id}/working-hours` zachowuje listę godzin dla istniejących ekranów.
+Zapis konfiguracji odbywa się przez `PUT /api/institutions/{id}/working-hours`.
 `PUT` pod tym samym adresem zastępuje całą konfigurację i wymaga aktywnego
 administratora tej instytucji:
 

@@ -7,7 +7,8 @@ import pytest
 from sqlalchemy import delete, select, func
 from starlette.websockets import WebSocketDisconnect
 
-from app import security
+# Import uwzględnia przeniesienie mechanizmu sesji do pakietu core.
+from app.core import security
 from app.models.notifications import Notification
 from app.services.notifications import create_notification
 from app.services.realtime import hub
@@ -124,6 +125,9 @@ def test_websocket_rejects_unauthorized(env, kind):
 def test_full_visit_updates_both_devices_and_reconnect(env):
     first = join(env)
     join(env, "bob")
+    # Scenariusz obsługi obejmuje wcześniejsze potwierdzenie przez klienta.
+    assert env.client.post("/api/queue/confirm", headers=env.headers("alice"), json={
+        "user_id": str(env.ids["alice"]), "queue_entry_id": first["id"]}).status_code == 200
     path = f"/ws/user/{env.ids['bob']}"
     with env.client.websocket_connect(path, headers=env.headers("bob")) as ws1:
         with env.client.websocket_connect(path) as ws2:
@@ -149,7 +153,7 @@ def test_full_visit_updates_both_devices_and_reconnect(env):
     with env.client.websocket_connect(path, headers=env.headers("bob")) as ws:
         assert ws.receive_json()["data"]["queue"][0]["queue_position"] == 1
     notices = env.client.get("/api/notifications", headers=env.headers("alice")).json()
-    assert len(notices) == 3  # Zapis, rozpoczęcie i zakończenie wizyty; ponowne zakończenie niczego nie dodaje
+    assert len(notices) == 4  # Zapis, potwierdzenie, rozpoczęcie i zakończenie; ponowienie nie dodaje powiadomień.
 
 
 def test_logout_revokes_existing_socket(env):
@@ -171,14 +175,13 @@ def test_expired_access_token_is_rejected(env):
     assert env.client.get("/api/notifications", headers={"Authorization": f"Bearer {token}"}).status_code == 401
 
 
-@pytest.mark.parametrize("transition", ["cancel", "confirm", "skip"])
+# Ręczny skip jest wyłączony; osobny test sprawdza odpowiedź 410 bez zmian danych.
+@pytest.mark.parametrize("transition", ["cancel", "confirm"])
 def test_queue_transitions_are_private_and_idempotent(env, transition):
     entry = join(env)
     body = {"queue_entry_id": entry["id"]}
-    actor = "staff" if transition == "skip" else "alice"
-    body["employee_id" if transition == "skip" else "user_id"] = str(
-        env.ids["employee" if transition == "skip" else "alice"]
-    )
+    actor = "alice"
+    body["user_id"] = str(env.ids["alice"])
     for _ in range(2):
         response = env.client.post(f"/api/queue/{transition}", headers=env.headers(actor), json=body)
         assert response.status_code == 200, response.text
@@ -211,8 +214,10 @@ def test_notification_failure_rolls_back_queue(env, monkeypatch):
         raise RuntimeError("Simulated failure before commit")
 
     monkeypatch.setattr(queue, "queue_changed", fail)
-    with pytest.raises(RuntimeError, match="Simulated failure"):
-        join(env)
+    # Middleware zamienia wyjątek na HTTP 500; nadal sprawdzamy pełny rollback.
+    response = env.client.post("/api/queue/join", headers=env.headers("alice"), json={
+        "user_id": str(env.ids["alice"]), "service_id": str(env.ids["service"])})
+    assert response.status_code == 500
     assert env.client.get("/api/notifications", headers=env.headers("alice")).json() == []
     response = env.client.get(f"/api/queue/status/{env.ids['alice']}", headers=env.headers("alice"))
     assert response.json() == []

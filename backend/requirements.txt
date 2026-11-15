@@ -1,6 +1,7 @@
 fastapi
 uvicorn
-sqlalchemy
+# Rozszerzenie asyncio instaluje greenlet także w nowym środowisku.
+sqlalchemy[asyncio]>=2.0,<3
 asyncpg
 python-dotenv
 passlib[bcrypt]
@@ -10,3 +11,5 @@ websockets
 PyJWT
 # Dane Europe/Warsaw i zmian czasu także na Windows, bez systemowej bazy stref.
 tzdata
+# Moduł SMS jest importowany przez obsługę kont; konfiguracja dostawcy jest osobna.
+twilio>=9,<10

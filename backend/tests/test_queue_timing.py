@@ -26,6 +26,9 @@ def test_eta_tracks_remaining_visit_time_and_overrun(env):
     second = join(env, "bob")
     assert first["estimated_wait_time"] == 0
     assert second["estimated_wait_time"] == 15
+    # Scenariusz obsługi obejmuje wcześniejsze potwierdzenie przez klienta.
+    assert env.client.post("/api/queue/confirm", headers=env.headers("alice"), json={
+        "user_id": str(env.ids["alice"]), "queue_entry_id": first["id"]}).status_code == 200
     response = env.client.post("/api/visit/start", headers=env.headers("staff"), json={
         "queue_entry_id": first["id"], "employee_id": str(env.ids["employee"]),
     })
@@ -66,6 +69,8 @@ def test_parallel_employees_and_unavailable_staff(env):
             await recalculate(db, service)
             bob = await db.get(QueueEntry, UUID(second["id"]))
             assert bob.estimated_wait_time == 0
+            # Przeliczenie ETA nie może utrwalić automatycznego wyboru pracownika.
+            assert bob.employee_id is None
             for worker in (await db.scalars(select(Employee))).all():
                 worker.employee_status = "inactive"
             await process_service(db, service)

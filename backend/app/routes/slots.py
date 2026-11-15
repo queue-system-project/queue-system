@@ -166,7 +166,8 @@ async def get_service_slots(
     slots = result.scalars().all()
     if available_only:
         # Slot poza grafikiem lub w zamkniętym dniu nie jest oferowany klientowi.
-        from services.calendar import load_calendar
+        # Pełna ścieżka pakietu działa również przy uruchomieniu backendu jako app.main.
+        from app.services.calendar import load_calendar
         from app.models.day_closure import DayClosure
         calendar = await load_calendar(db, service.institution_id)
         closed_days = set((await db.scalars(select(DayClosure.day).where(

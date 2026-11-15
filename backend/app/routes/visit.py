@@ -110,7 +110,8 @@ async def start_visit(
         if entry is None:
             raise HTTPException(404, "Queue entry not found")
 
-        if entry.status not in ("waiting", "confirmed"):
+        # Obsługa wymaga potwierdzenia przybycia; oczekiwanie nie jest zgodą klienta.
+        if entry.status != "confirmed":
             raise HTTPException(
                 409, "Queue entry is not ready for a visit"
             )
@@ -124,8 +125,9 @@ async def start_visit(
         from app.services.calendar import require_interval
         from datetime import timedelta
         await require_interval(db, service, now, now + timedelta(microseconds=1), data.employee_id)
-        if entry.status == "waiting" and entry.confirmation_expires_at is not None and entry.confirmation_expires_at <= now:
-            raise HTTPException(409, "Confirmation deadline has expired")
+        # Data chroni także przyszłe rezerwacje bez slotu; waiting odrzuca warunek statusu powyżej.
+        if entry.queue_date > business_date(now):
+            raise HTTPException(409, "Scheduled visit date has not been reached")
         if entry.arrival_time is not None and entry.arrival_time > now:
             raise HTTPException(409, "Confirmed arrival time has not been reached")
         # Rezerwacja kalendarzowa nie może rozpocząć się przed swoim terminem.

@@ -5,8 +5,8 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from app.models.day_closure import DayClosure
 from app.models.catalog import Institution, Service
+# queue_date wystarcza do wyboru zapisów; powiązanie z ServiceSlot nie jest potrzebne.
 from app.models.queue import QueueEntry
-from app.models.slots import ServiceSlot
 from app.models.offers import OfferWindow, QueueOffer
 from app.services.notifications import queue_changed
 from app.services.queue_offers import signal_window
@@ -44,15 +44,15 @@ async def close_day(db, institution_id, user_id, now=None, day=None):
                          closed_by=user_id, cancelled_count=0)
     db.add(closure)
     await db.flush()
-    tomorrow = day_bounds(day)[1]
+    # Obie granice ograniczają wygaszanie ofert do konkretnego dnia Europe/Warsaw.
+    day_start, tomorrow = day_bounds(day)
     for service in services:
-        # Rezerwacje przyszłych dni pozostają bez zmian; rozpoczęte wizyty także.
-        entries = list((await db.scalars(select(QueueEntry).outerjoin(
-            ServiceSlot, ServiceSlot.id == QueueEntry.slot_id).where(
+        # Data wizyty, a nie utworzenia zapisu, wyznacza zamykany dzień.
+        # Dotyczy to również rezerwacji bez przypisanego slotu.
+        entries = list((await db.scalars(select(QueueEntry).where(
                 QueueEntry.service_id == service.id,
                 QueueEntry.status.in_(("waiting", "confirmed")),
-                ((QueueEntry.slot_id.is_(None) & (QueueEntry.created_at < tomorrow)) |
-                 (ServiceSlot.slot_start < tomorrow)),
+                QueueEntry.queue_date == day,
             ).order_by(QueueEntry.id).with_for_update(of=QueueEntry))).all())
         for entry in entries:
             entry.status = "cancelled"
@@ -60,8 +60,10 @@ async def close_day(db, institution_id, user_id, now=None, day=None):
             entry.queue_position = None
             await queue_changed(db, entry, update_eta=False)
         closure.cancelled_count += len(entries)
+        # Zamykanie zaległego dnia nie wygasza ofert z innych dat.
         windows = list((await db.scalars(select(OfferWindow).where(
             OfferWindow.service_id == service.id, OfferWindow.status == "active",
+            OfferWindow.created_at >= day_start,
             OfferWindow.created_at < tomorrow))).all())
         for window in windows:
             window.status = "expired"

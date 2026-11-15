@@ -254,8 +254,9 @@ async def recalculate(
                         str(employee_id),
                     ),
                 )
-                if entry.employee_id is None:
-                    entry.employee_id = chosen
+                # Wybór do obliczenia ETA nie jest trwałym przypisaniem.
+                # Bez preferencji klient może trafić do wcześniej wolnego pracownika;
+                # jawny wybór lub pracownik slotu pozostaje w employee_id.
 
                 start = candidates[chosen]
 

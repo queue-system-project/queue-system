@@ -1,6 +1,6 @@
 # Nieobecność i zamknięcie dnia
 
-Wymagane są migracje 001–010; migracja 006 wprowadza zapis zamknięcia dnia.
+Wymagane są migracje 001–012; migracja 006 wprowadza zapis zamknięcia dnia.
 Nie zmienia ona istniejących statusów. Dodaje powód anulowania, audyt nieobecności
 oraz trwały zapis zamknięcia dnia instytucji.
 
@@ -13,8 +13,8 @@ Przykładowe body:
 {"employee_id":"UUID_PRACOWNIKA","queue_entry_id":"UUID_WPISU"}
 ```
 
-Można zmienić wyłącznie `waiting` lub `confirmed`. Nie można oznaczyć nieobecności
-przed potwierdzonym czasem przybycia ani przed terminem powiązanego slotu.
+Można zmienić wyłącznie `confirmed`. Nie można oznaczyć nieobecności
+przed dniem wizyty, potwierdzonym czasem przybycia ani przed terminem powiązanego slotu.
 Serwer zapisuje `missed_at` i identyfikator użytkownika w `missed_by`, zwalnia
 pozycję, przelicza kolejkę i zapisuje powiadomienie wraz z zadaniem push.
 Powtórzenie nie zmienia audytu i nie tworzy duplikatów. Błędna rola lub przypisanie
@@ -22,18 +22,20 @@ zwraca 403, a niedozwolona zmiana stanu — 409.
 
 Nieobecności nie nadaje timer. Brak odpowiedzi na prośbę o potwierdzenie nadal
 powoduje `skipped`, a odmowa — `cancelled`.
+Ręczny `POST /api/queue/skip` jest wyłączony i zwraca HTTP 410.
 
 ## Zamknięcie dnia
 
 `POST /api/institutions/{institution_id}/close-day`, bez body, wymaga aktywnego
 pracownika lub administratora tej instytucji. Operacja ręczna dotyczy bieżącej daty Europe/Warsaw. Timer może zamknąć dzień zgodnie z grafikiem.
 
-- Nieobsłużone `waiting` i `confirmed` zostają anulowane z
+- Nieobsłużone `waiting` i `confirmed` z `queue_date` równego zamykanej dacie zostają anulowane z
   `cancellation_reason=institution_closed` i powiadomieniem wyjaśniającym przyczynę.
 - Wizyty `in_service` pozostają aktywne. Pracownik kończy je przez istniejące
   `/api/visit/end`; zapisywany jest rzeczywisty czas zakończenia.
-- Pozostałe statusy i powiązane sloty przyszłych dni pozostają bez zmian.
-- Oferty urgent/last-minute wygasają. Zamknięcie nie generuje nowych ofert.
+- Pozostałe statusy i rezerwacje przyszłych dni, również bez slotu, pozostają bez zmian.
+- Aktywne okna ofert urgent/last-minute utworzone w zamykanym dniu wygasają.
+  Zamknięcie nie generuje nowych ofert.
 - Do końca dnia nowe zapisy na ten dzień, potwierdzenia oczekujących wpisów, rozpoczęcia wizyt
   i przyjęcia ofert są odrzucane kodem 409.
 - Zapisy nie są automatycznie przenoszone na następny dzień.

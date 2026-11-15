@@ -635,86 +635,14 @@ async def confirm_queue(
     return response
 
 
-@router.post("/skip", response_model=QueueResponse)
+# Status skipped nadaje wyłącznie timer po upływie czasu na potwierdzenie.
+# Zachowany adres zwraca jednoznaczną informację starszym klientom API.
+@router.post("/skip", deprecated=True)
 async def skip_queue(
     data: SkipQueueRequest,
     current_user=Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
 ):
-    async with db.begin():
-        await require_employee(db, current_user, data.employee_id)
-        # Той самий порядок блокувань, що й у visit/start:
-        # послуга → працівник → запис черги.
-        service = await lock_entry_service(
-            db, data.queue_entry_id
-        )
-
-        result = await db.execute(
-            select(Employee)
-            .where(Employee.id == data.employee_id)
-            .with_for_update()
-        )
-        employee = result.scalar_one_or_none()
-
-        if employee is None:
-            raise HTTPException(404, "Employee not found")
-
-        if employee.employee_status != "active":
-            raise HTTPException(403, "Employee is inactive")
-
-        if (
-            service.institution_id is None
-            or employee.institution_id != service.institution_id
-        ):
-            raise HTTPException(
-                403, "Employee belongs to another institution"
-            )
-
-        assignment_id = await db.scalar(
-            select(EmployeeService.id)
-            .where(
-                EmployeeService.employee_id == employee.id,
-                EmployeeService.service_id == service.id,
-            )
-            .limit(1)
-        )
-
-        if assignment_id is None:
-            raise HTTPException(
-                403, "Employee is not assigned to this service"
-            )
-
-        entry = await get_locked_entry(db, data.queue_entry_id)
-
-        if entry.employee_id not in (None, employee.id):
-            raise HTTPException(
-                403, "Entry belongs to another employee"
-            )
-
-        # Повторне пропускання вже пропущеного запису дозволене.
-        if entry.status == "skipped":
-            return QueueResponse.model_validate(entry)
-
-        if entry.status not in ("waiting", "confirmed"):
-            raise HTTPException(
-                409, "Only waiting or confirmed entries can be skipped"
-            )
-
-        entry.status = "skipped"
-        entry.queue_position = None
-        await queue_changed(db, entry)
-
-        await db.flush()
-
-        entries = await get_active_entries(db, service.id)
-
-        for position, item in enumerate(entries, start=1):
-            item.queue_position = position
-
-        await db.flush()
-        response = QueueResponse.model_validate(entry)
-
-    return response
+    raise HTTPException(410, "Manual skipping is disabled; confirmation timeout is automatic")
 
 
 # Nieobecność oznacza ręcznie przypisany pracownik; odmowa klienta pozostaje anulowaniem.
@@ -738,9 +666,13 @@ async def mark_missed(data: SkipQueueRequest, current_user=Depends(get_current_u
         # Ponowienie nie zmienia audytu ani nie tworzy drugiego powiadomienia.
         if entry.status == "missed":
             return QueueResponse.model_validate(entry)
-        if entry.status not in ("waiting", "confirmed"):
-            raise HTTPException(409, "Only waiting or confirmed entries can be marked missed")
+        # Nieobecność dotyczy tylko klienta, który potwierdził przybycie.
+        if entry.status != "confirmed":
+            raise HTTPException(409, "Only confirmed entries can be marked missed")
         now = datetime.utcnow()
+        # Nieobecności nie można oznaczyć przed dniem wizyty, także bez slotu.
+        if entry.queue_date > business_date(now):
+            raise HTTPException(409, "Scheduled visit date has not been reached")
         if entry.arrival_time and entry.arrival_time > now:
             raise HTTPException(409, "Confirmed arrival time has not been reached")
         if entry.slot_id and entry.priority_at is None:
