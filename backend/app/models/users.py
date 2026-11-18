@@ -44,6 +44,9 @@ class User(Base):
     profile_image = Column(Text)
 
     is_verified = Column(Boolean, default=False)
+    # Potwierdzenie konta nie oznacza potwierdzenia obu zapisanych kontaktów.
+    email_verified_at = Column(DateTime)
+    phone_verified_at = Column(DateTime)
     verification_code = Column(String(4))
 
     is_active = Column(Boolean, default=True)

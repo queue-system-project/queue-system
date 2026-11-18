@@ -10,6 +10,8 @@ class RegisterRequest(BaseModel):
     phone: Optional[str] = Field(default=None, max_length=20)
     password: str = Field(min_length=6, max_length=60)
     accept_terms: bool
+    # Przy dwóch kontaktach wybór kanału należy do użytkownika.
+    verification_channel: Optional[Literal["email", "sms"]] = None
 
     @field_validator("phone", mode="before")
     @classmethod
@@ -19,9 +21,22 @@ class RegisterRequest(BaseModel):
             return value or None
         return value
 
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, value):
+        import re
+        if value is not None and not re.fullmatch(r"\+[1-9][0-9]{7,14}", value):
+            raise ValueError("Use an international phone number in E.164 format")
+        return value
+
+
+class ContactVerificationRequest(BaseModel):
+    # Potwierdzamy tylko kontakt już zapisany na zalogowanym koncie.
+    channel: Literal["email", "sms"]
+
 
 class RegisterResponse(BaseModel):
-    # Kod usunięto z odpowiedzi: odbiorca otrzymuje go wyłącznie pocztą.
+    # Kod trafia wyłącznie do wybranego kanału, nigdy do odpowiedzi API.
     message: str
     user_id: str
 

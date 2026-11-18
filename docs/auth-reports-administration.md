@@ -54,13 +54,17 @@ zaakceptować regulamin. Konto musi zostać zweryfikowane przed pierwszym
 logowaniem.
 
 Dla adresów email kody weryfikacyjne są wysyłane przez SMTP.
-`POST /api/auth/verify-reset-code` sprawdza kod dla celu `reset`, nie zużywając go.
+`POST /api/auth/verify-reset-code` sprawdza kod dla celu `reset`, zachowując lokalne
+wyzwanie. Dla SMS zapamiętuje skrót kodu zaakceptowanego jednorazowo przez Twilio.
 `POST /api/auth/reset-password` ponownie sprawdza kod i atomowo zużywa go przy zmianie
 hasła. Nieprawidłowy, wygasły lub wykorzystany kod zwraca HTTP 400; nieudane próby
 podlegają wspólnemu limitowi. Kod rejestracji nie może zastąpić kodu resetu.
 Dla numerów telefonu wykorzystywana jest usługa Twilio Verify.
 Numery telefonu są przekazywane w formacie międzynarodowym E.164,
-np. `+48537086013`.
+np. `+48537086013`. Obecny zakres wysyłki SMS obejmuje Polskę.
+Przy dwóch kontaktach rejestracja wymaga `verification_channel`; przy odzyskiwaniu
+dostępu odbiorcę wyznacza wpisany `login`, a kontakt musi być wcześniej potwierdzony.
+Osobne potwierdzanie kontaktów i migrację 013 opisano w [auth-channels.md](auth-channels.md).
 
 W prywatnym `backend/.env` należy ustawić konfigurację SMTP:
 

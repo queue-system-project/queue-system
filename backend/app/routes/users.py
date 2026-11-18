@@ -85,7 +85,8 @@ async def get_db():
 # PBKDF2 zastępuje lokalne SHA-256, zachowując weryfikację i migrację starszych haseł.
 # Kody z terminem ważności i limitem prób zastępują pole users.verification_code.
 from app.core.passwords import hash_password, verify_password
-from app.core.auth_codes import issue, check
+from app.core.auth_codes import issue, check, contact, contact_verified
+from app.schemas.users import ContactVerificationRequest
 from app.core import mail
 
 
@@ -103,7 +104,7 @@ async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
             422,
             "Accepted terms are required"
         )
-    # Rejestracja wymaga poczty; brak konfiguracji nie może tworzyć kont bez drogi potwierdzenia.
+    # Kanał wybiera użytkownik; zapis konta zależy od powodzenia wysłania kodu.
 
     conditions = []
 
@@ -113,7 +114,8 @@ async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
     if data.phone:
         conditions.append(User.phone == data.phone)
 
-    result = await db.execute(select(User).where(or_(*conditions)))
+    # Dwa kontakty mogą należeć do różnych istniejących kont; wystarczy pierwszy konflikt.
+    result = await db.execute(select(User).where(or_(*conditions)).limit(1))
     existing_user = result.scalar_one_or_none()
 
     if existing_user:
@@ -132,10 +134,10 @@ async def register(data: RegisterRequest, db: AsyncSession = Depends(get_db)):
     )
 # Save&refresh
     db.add(new_user)
-    # Konto i skrót kodu zapisujemy razem; kod trafia tylko do emaila, nigdy do odpowiedzi API.
+    # Konto i kod zapisujemy razem; kod trafia do wybranego kontaktu, nigdy do odpowiedzi API.
     try:
         await db.flush()
-        await issue(db, new_user, "verify")
+        await issue(db, new_user, "verify", channel=data.verification_channel)
         await db.commit()
     # Równoczesne rejestracje tego samego kontaktu kończą się konfliktem zamiast błędem serwera.
     except IntegrityError:
@@ -177,7 +179,7 @@ async def login(
     if not user.is_active:
         raise unauthorized()
 
-    # Nowa sesja wymaga potwierdzonego emaila; starszy hash aktualizujemy po poprawnym haśle.
+    # Nowa sesja wymaga potwierdzonego konta; reset wymaga potwierdzenia konkretnego kontaktu.
     if not user.is_verified:
         raise HTTPException(
             403,
@@ -220,7 +222,8 @@ async def resend_verification(
         )
 
         if user and user.is_active and not user.is_verified:
-            await issue(db, user, "verify")
+            # Wpisany login wyznacza odbiorcę również wtedy, gdy konto ma oba kontakty.
+            await issue(db, user, "verify", login=data.login)
 
     return {
         "message": "If an eligible account exists, a code has been sent"
@@ -241,7 +244,7 @@ async def get_me(
         "is_verified": user.is_verified,
         "is_active": user.is_active,
     }
-# Jednolita odpowiedź nie ujawnia istnienia konta; kod jest dostarczany przez SMTP.
+# Jednolita odpowiedź nie ujawnia konta; kod trafia tylko do potwierdzonego kontaktu.
 @router.post("/forgot-password", response_model=ForgotPasswordResponse)
 async def forgot_password(
     data: ForgotPasswordRequest,
@@ -261,14 +264,15 @@ async def forgot_password(
         )
 
         if user and user.is_active:
-            print("FORGOT CONTACT:", "phone" if user.phone else "email")
-            await issue(db, user, "reset")
+            channel, _ = contact(user, login=data.login)
+            if contact_verified(user, channel):
+                await issue(db, user, "reset", login=data.login)
 
     return {
         "message": "If an eligible account exists, a code has been sent"
     }
 
-# Wstępna kontrola nie zużywa kodu; reset sprawdza go ponownie i zużywa atomowo.
+# Wstępna kontrola zachowuje lokalny kod; dla SMS zapisuje wynik jednorazowej kontroli Twilio.
 @router.post("/verify-reset-code", response_model=VerifyResetCodeResponse)
 async def verify_reset_code(data: VerifyResetCodeRequest, db: AsyncSession = Depends(get_db)):
     if await check(db, data.login, data.code, "reset") is None:
@@ -282,6 +286,29 @@ async def reset_password(data: ResetPasswordRequest, db: AsyncSession = Depends(
     if await check(db, data.login, data.verification_code, "reset", consume=True, new_password=data.new_password) is None:
         raise HTTPException(400, "Invalid or expired verification code")
     return {"message": "Password reset successfully"}
+
+
+# Drugi zapisany kontakt można potwierdzić dopiero po uwierzytelnieniu właściciela konta.
+@users_router.post("/me/contact-verification", response_model=ForgotPasswordResponse)
+async def request_contact_verification(data: ContactVerificationRequest,
+        current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    async with db.begin():
+        user = await db.scalar(select(User).where(User.id == current_user.id).with_for_update())
+        channel, _ = contact(user, channel=data.channel)
+        if not contact_verified(user, channel):
+            await issue(db, user, "verify", channel=channel)
+    return {"message": "Verification requested"}
+
+
+@users_router.post("/me/contact-verification/confirm", response_model=VerifyResponse)
+async def confirm_contact_verification(data: VerifyRequest,
+        current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    if data.login not in (current_user.email, current_user.phone):
+        raise HTTPException(403, "Contact belongs to another account")
+    user_id = await check(db, data.login, data.code, "verify", consume=True)
+    if user_id is None:
+        raise HTTPException(400, "Invalid or expired verification code")
+    return {"message": "Contact verified successfully", "user_id": str(user_id)}
 
 
 @users_router.get("/{user_id}", response_model=UserResponse)

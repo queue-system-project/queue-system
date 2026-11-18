@@ -2,7 +2,8 @@
 
 Powiadomienia i aktualizacje w czasie rzeczywistym opisano w
 [docs/notifications-realtime.md](docs/notifications-realtime.md).
-Przed uruchomieniem z istniejącą bazą należy zastosować migracje 001–012.
+Przed uruchomieniem z istniejącą bazą należy zastosować migracje 001–013.
+Wybór kanału email/SMS i lokalną weryfikację opisano w [docs/auth-channels.md](docs/auth-channels.md).
 Obliczanie ETA, terminy potwierdzeń i ograniczenia opisano w
 [docs/eta-confirmations.md](docs/eta-confirmations.md).
 
